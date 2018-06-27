@@ -19,6 +19,7 @@ git clone https://github.com/fiberx/angrop-fiber.git angrop
 git clone https://github.com/fiberx/angr-simuvex-fiber.git simuvex
 git clone https://github.com/fiberx/angr-vex-fiber.git vex
 git clone https://github.com/fiberx/angr-pyvex-fiber.git pyvex
+git clone https://github.com/fiberx/archinfo-fiber.git archinfo
 git -C angr checkout fiber
 git -C angr pull
 git -C claripy checkout fiber
@@ -37,6 +38,8 @@ git -C vex checkout fiber
 git -C vex pull
 git -C pyvex checkout fiber
 git -C pyvex pull
+git -C archinfo checkout fiber
+git -C archinfo pull
 # Set up the angr-dev environment
 # sudo pip install virtualenvwrapper
 ./setup.sh -i -E $2
