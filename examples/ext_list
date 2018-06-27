@@ -1,0 +1,40 @@
+CVE-2016-10230 qce_aead_req 4491-4492 match_reg_set:x0,x1 trim_non_tail_roots:True
+CVE-2016-10230 qce_aead_req 4491-4492,4499 match_reg_set:x0,x1 trim_non_tail_roots:True
+CVE-2016-10230 qce_aead_req 4491-4493 match_reg_set:x0,x1 trim_non_tail_roots-4491-4492:True
+CVE-2016-10232 mdss_fb_force_panel_dead 602 match_reg_set:x0,x1,x2,x3 func_existence_test:kstrtouint
+CVE-2016-10232 mdss_fb_change_dfps_mode 716 match_reg_set:x0,x1,x2,x3 func_existence_test:kstrtouint
+CVE-2016-10232 mdss_debug_factor_write 688 match_reg_set:x0,x1,x2,x3 func_existence_test:kstrtouint
+CVE-2016-10234 ipa_generate_flt_hw_tbl_v2 777-778 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots-778-778:True
+CVE-2016-10234 ipa_generate_flt_hw_tbl_v2 778 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots:True
+CVE-2016-10234 ipa_nat_dma_cmd 576 match_reg_set:x0,x0 trim_non_tail_roots:True
+CVE-2016-2059 msm_ipc_router_bind_control_port 3285,3288 match_reg_set:x0,x0 trim_non_tail_roots:True
+CVE-2016-2059 msm_ipc_router_bind_control_port 3285 match_reg_set:x0,x0 trim_non_tail_roots:True
+CVE-2016-2066 msm_audio_effects_bass_boost_handler 885-887 match_reg_set:x0,x1,x2 trim_non_tail_roots:True
+CVE-2016-2066 __msm_audio_effects_volume_handler 1274-1276 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots:True
+CVE-2016-2066 msm_audio_effects_virtualizer_handler 278-280 match_reg_set:x0,x1,x2 trim_non_tail_roots:True
+CVE-2016-2068 audio_effects_shared_ioctl 321-322 match_reg_set:x0,x1,x2 trim_non_tail_roots:True
+CVE-2016-2068 audio_effects_shared_ioctl 317,321-323 match_reg_set:x0,x1,x2 trim_non_tail_roots:True
+CVE-2016-2068 audio_effects_shared_ioctl 166-173 match_reg_set:x0,x1,x2 trim_tail_call_args:True
+CVE-2016-2184 create_fixed_stream_quirk 175 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots:True
+CVE-2016-2184 create_uaxx_quirk 245 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots:True
+CVE-2016-2184 create_uaxx_quirk 269 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots:True
+CVE-2016-2489 panel_debug_base_offset_read 111-112 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots:True
+CVE-2016-2489 mdss_debug_base_offset_read 382-383 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots:True
+CVE-2016-2489 mdss_debug_factor_read 716-718 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots:True
+CVE-2016-2501 msm_actuator_init_step_table 917,920-921 match_reg_set:x0,x1 trim_non_tail_roots-920-921:True
+CVE-2016-2501 msm_actuator_init_step_table 946-947 match_reg_set:x0,x1 trim_non_tail_roots:True
+CVE-2016-2501 msm_actuator_bivcm_init_step_table 853-854 match_reg_set:x0,x1 trim_non_tail_roots:True
+CVE-2016-2502 gser_ioctl 1364 match_reg_set:x0,x1,x2 trim_non_tail_roots:True
+CVE-2016-2502 gser_ioctl 1364-1366 match_reg_set:x0,x1,x2 trim_non_tail_roots:True
+CVE-2016-2502 gser_ioctl 1364,1371-1372 match_reg_set:x0,x1,x2 trim_non_tail_roots:True
+CVE-2016-2546 snd_timer_user_release 1281 match_reg_set:x0,x1 func_existence_test:mutex_lock
+CVE-2016-2546 snd_timer_user_release 1284 match_reg_set:x0,x1 func_existence_test:mutex_unlock
+CVE-2016-2546 snd_timer_user_release 1283-1284 match_reg_set:x0,x1 trim_non_tail_roots-1283-1283:True
+CVE-2016-3813 dwc3_store_ep_num 664 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots:True
+CVE-2016-3813 dwc3_store_ep_num 668-669 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots:True
+CVE-2016-3813 dwc3_store_ep_num 661,664 match_reg_set:x0,x1,x2,x3 trim_non_tail_roots:True
+CVE-2016-3858 firmware_name_store 291-293 match_reg_set:x0,x1,x2,x3 farg-292-293:x2,x3 trim_non_tail_roots-291-291:True
+CVE-2016-3858 firmware_name_store 292-294 match_reg_set:x0,x1,x2,x3 farg-292-293:x2,x3 trim_tail_call_args:True
+CVE-2016-3858 firmware_name_store 292-293 match_reg_set:x0,x1,x2,x3 farg-292-293:x2,x3
+CVE-2016-3866 msm_compr_ioctl_shared 1041,1046 match_reg_set:x0,x1,x2 trim_tail_abs_jmp:False trim_non_tail_roots-1041-1041:True
+CVE-2016-3866 msm_compr_ioctl_shared 1046-1047 match_reg_set:x0,x1,x2 trim_non_tail_roots-1047-1047:True
