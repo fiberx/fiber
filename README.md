@@ -29,7 +29,7 @@ Use the valid binary signatures to do patch presence test for the target kernels
 At first we need to install virtualenvwrapper for python, please follow the [official installation instructions](http://virtualenvwrapper.readthedocs.io/en/latest/install.html).
 Before continuing, plz make sure that virtualenvwrapper is correctly installed and you can execute its commands:  
 `~$ workon`  
-NOTE, **plz don't use *sudo* from here on**.  
+NOTE, **plz don't use *sudo* from here on unless explicitly prompted**.  
 `~$ git clone https://github.com/fiberx/fiber.git`  
 `~$ cd fiber`  
 Setup the angr development environment specifically crafted for fiber:  
