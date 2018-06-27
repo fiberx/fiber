@@ -26,10 +26,9 @@ Use the valid binary signatures to do patch presence test for the target kernels
 
 ## 0x1 Environment Setup
 
-At first we need to install virtualenvwrapper for python:  
-`~$ pip install virtualenvwrapper`  
-Should there exist any permission issues, try:  
-`~$ sudo pip install virtualenvwrapper`  
+At first we need to install virtualenvwrapper for python, please follow the [official installation instructions](http://virtualenvwrapper.readthedocs.io/en/latest/install.html).
+Before continuing, plz make sure that virtualenvwrapper is correctly installed and you can execute its commands:  
+`~$ workon`  
 NOTE, **plz don't use *sudo* from here on**.  
 `~$ git clone https://github.com/fiberx/fiber.git`  
 `~$ cd fiber`  
