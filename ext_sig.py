@@ -214,6 +214,7 @@ def get_next_index(s):
         return 0
 
 def ext_sig():
+    global BASE
     symbol_table = Sym_Table(sys.argv[2])
     BASE = symbol_table.probe_arm64_kernel_base()
     code_segments = symbol_table.get_code_segments(BASE)
