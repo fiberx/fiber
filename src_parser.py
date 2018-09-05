@@ -110,7 +110,7 @@ def _parse_patch_at(p_buf,st,ed,s_buf):
     c_index = []
     i = p_st
     while i < ed:
-        if p_buf[i][0] in ('+','-'):
+        if p_buf[i] and p_buf[i][0] in ('+','-'):
             j = i + 1
             while j < len(p_buf) and p_buf[j][0] in ('+','-'):
                 j += 1
