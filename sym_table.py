@@ -76,8 +76,9 @@ class Sym_Table(object):
 
     def probe_arm64_kernel_base(self):
         for (addr,ty,name) in self.raw_syms:
-            if addr >= 0xffffff0000000000 and ty in ('T','t'):
+            if addr >= 0xffff000000000000 and ty in ('T','t'):
                 break
+        print 'Probed image base address: %x' % addr
         return addr
 
     #Decide the code ('t'/'T') segments according to the symbol table file.
