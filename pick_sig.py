@@ -861,7 +861,7 @@ def rank_candidate(cands,p_inf):
     return s
 
 func_inf = {}
-def do_pick_sig(patch_inf):
+def do_pick_sig(patch_inf,pick_cnt=3):
     #It's time to decide the source code lines that we can mark to extract signatures.
     cands = generate_line_candidates(patch_inf)
     if not cands:
@@ -891,15 +891,13 @@ def do_pick_sig(patch_inf):
     for c in res_cand:
         c['arg_cnt'] = patch_inf[(c['file'],c['func'],c['func_range'][0])]['arg_cnt']
     if not res_cand:
-        return []
-    else:
-        if dbg_out:
-            print '==============Ranked Candidates=============='
-            for r in res_cand:
-                print '=============='
-                print r
-        return res_cand[:3] if len(res_cand) >= 3 else res_cand
-        #return res_cand
+        res_cand = []
+    if dbg_out:
+        print '==============Ranked Candidates=============='
+        for r in res_cand:
+            print '=============='
+            print r
+    return res_cand[:pick_cnt] if pick_cnt > 0 else res_cand
 
 sym_tabs = []
 def pick_sig():
