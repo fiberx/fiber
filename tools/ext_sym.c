@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 /*
  * Arg 0: a Linux kernel image (should have been uncompressed)
@@ -72,7 +73,7 @@ int locate_token_table(){
 
 //In this function we assume that the pointer currently points to the start of one section,
 //we will move the pointer to the start of previous section. 
-inline char* prev_section(char *p){
+char* prev_section(char *p){
     while(!*(--p)); //skip the "zero" gap between two sections.
     //We assume the "zero" gap is at least 8 bytes long.
     while(*(int*)(p-4) || *(int*)(p-8)){
@@ -110,7 +111,8 @@ int verify_addr_section(long int *p){
         if(!*(p+i))
             return 1;
         //fprintf(stderr,"%p %p\n",(void*)*(p+i),(void*)(*(p+i) & 0xffff000000000000));
-        //The addr section is actually an 'offset' section, each entry is a 4-byte 'offset' and we should figure out the base address. (i.e. relative base address symbol table)
+        //The addr section is actually a 'delta' section, each entry is a 4-byte 'delta' and we should figure out the base address to add. (i.e. relative base address symbol table)
+        //The heuristic here is that the highest few bytes should be 'f' for a normal symbol address in an Aarch64 kernel.
         if((*(p+i) & 0xffff000000000000) != 0xffff000000000000)
             return 2;
     }
@@ -128,7 +130,7 @@ typedef struct relo_section{
 }relo_section;
 
 //TODO: This heuristic may or may not be sufficient.
-inline int is_relo_entry(relo_entry *p){
+int is_relo_entry(relo_entry *p){
     //if(p->off>>40==0xffffff && p->add>>40==0xffffff)
     if(p->off>>40==0xffffff)
         return 1;
@@ -141,6 +143,7 @@ unsigned long int *kallsyms_addr=0;
 relo_section relo_secs[16];
 int num_secs=0;
 relo_entry *relo_sec=0;
+unsigned long int guessed_kernel_base_from_relo=0;
 
 int try_locate_relo_symaddr(relo_entry *p,relo_entry *e){
     //Now we need to locate the relo entries for kallsym_addr section, heuristics again...
@@ -183,9 +186,18 @@ int relo_ent_cmp(const void *a,const void *b){
     return a1->off>b1->off?1:-1;
 }
 //Provide a starting entry pointer, get the ending entry pointer of this relo section.
-inline relo_entry *get_relo_sec_ed(relo_entry *p,relo_entry *e){
+relo_entry *get_relo_sec_ed(relo_entry *p,relo_entry *e){
     for(;p<e&&is_relo_entry(p);++p);
     return p-1;
+}
+
+void print_relo_secs(){
+    relo_entry *p = relo_sec;
+    while(p<relo_ed){
+        fprintf(stderr,"%016lx %016lx %016lx\n",p->off,p->inf,p->add);
+        ++p;
+    }
+    return;
 }
 
 //Use some heuristics to locate the start and end of each relocation section
@@ -215,7 +227,7 @@ int get_relo_sections(){
         return 0;
     }
     for(i=0;i<num_secs;++i){
-        fprintf(stderr,"RELO_SEC %d: %p for off: %p- %p for off: %p\n",i,relo_secs[i].st,(void*)relo_secs[i].st->off,relo_secs[i].ed,(void*)relo_secs[i].ed->off);
+        fprintf(stderr,"RELO_SEC %d: +%p for off: +%p - +%p for off: +%p\n",i,(void*)((void*)relo_secs[i].st-st),(void*)relo_secs[i].st->off,(void*)((void*)relo_secs[i].ed-st),(void*)relo_secs[i].ed->off);
     }
     //Organize all relo entries together and sort them.
     int len=0,j=0,t;
@@ -230,6 +242,12 @@ int get_relo_sections(){
     }
     qsort(relo_sec,len,sizeof(relo_entry),relo_ent_cmp);
     relo_ed=relo_sec+len;
+    //print_relo_secs();
+    //The "offset" of each relo entry is an actual address within a loaded kernel image (i.e. kernel_base+XXX),
+    //since we already sorted all relo entries, the first relo entry should have an offset that is nearest to the "kernel_base",
+    //so here we guess the "kernel_base" by masking out lowest bits of first relo entry's "offset".
+    guessed_kernel_base_from_relo = relo_sec->off & 0xfffffffffffff000;
+    fprintf(stderr,"guessed_kernel_base_from_relo: %016lx\n",guessed_kernel_base_from_relo);
     return 1;
 }
 
@@ -275,12 +293,15 @@ int main(int argc, char **argv){
         perror("Cannot locate kallsyms_token_table in the kernel image.\n");
         goto exit_1;
     }
-    fprintf(stderr,"token_table: %p\n",addr_token_table);
+    fprintf(stderr,"token_table: +%p\n",(void*)(addr_token_table-st));
     fprintf(stderr,"Locating other sections...\n");
     if(!locate_other_sections()){
         perror("Cannot locate other sections in the kernel image.\n");
         goto exit_1;
     }
+    fprintf(stderr,"syms_names: +%p\n",(void*)(addr_syms_names-st));
+    fprintf(stderr,"syms_addrs: +%p\n",(void*)(addr_syms_addrs-st));
+    fprintf(stderr,"syms_num: +%p(#%d)\n",(void*)(addr_syms_num-st),num_syms);
     //Here we should verify that the kallsyms_addresses section is valid, some kernels need relocation to fill this section and some kernels use 'relative base address' symbol table..
     int addr_code = verify_addr_section(addr_syms_addrs);
     if(addr_code==1){
@@ -304,7 +325,8 @@ int main(int argc, char **argv){
             //t3 is the kallsyms_addr section entry address for current symbol.
             t3=kallsyms_addr+i;
             if(t2->off==(unsigned long int)t3){
-                *(t1+i)=t2->add + (t2->inf>>32);
+                //*(t1+i)=t2->add + (t2->inf>>32);
+                *(t1+i)=t2->add & 0xff00000000000000 ? t2->add : t2->add + guessed_kernel_base_from_relo;
                 ++t2;
             }else if(t2->off>(unsigned long int)t3){
                 //this means we don't have this symbol's address even with relocation information.
@@ -314,7 +336,8 @@ int main(int argc, char **argv){
                 while(t2->off<(unsigned long int)t3&&t2<relo_ed)
                     ++t2;
                 if(t2->off==(unsigned long int)t3){
-                    *(t1+i)=t2->add + (t2->inf>>32);
+                    //*(t1+i)=t2->add + (t2->inf>>32);
+                    *(t1+i)=t2->add & 0xff00000000000000 ? t2->add : t2->add + guessed_kernel_base_from_relo;
                     ++t2;
                 }else{
                     *(t1+i)=0;
@@ -336,13 +359,17 @@ int main(int argc, char **argv){
         unsigned long int min_base = 0xffffffffffffffff; 
         for(;rp<relo_ed;++rp){
             //Is this heuristic reliable?
-            unsigned long int t = rp->add + (rp->inf>>32);
+            //unsigned long int t = rp->add + (rp->inf>>32);
+            unsigned long int t = rp->add;
             if(rp->off==t + delta_syms_relb){
                 if(t<min_base)
                     min_base=t;
             }
         }
         fprintf(stderr,"Probed base address: %p\n",(void*)min_base);
+        if (min_base != guessed_kernel_base_from_relo){
+            fprintf(stderr,"Probed base address is not equal to guessed_kernel_base_from_relo, if something bad happens later, consider to use guessed_kernel_base_from_relo\n");
+        }
         //Generate the real kallsyms_addr table
         unsigned int *t1 = (unsigned int*)addr_syms_addrs;
         addr_syms_addrs = (unsigned long int*)malloc(num_syms*8);
@@ -350,7 +377,7 @@ int main(int argc, char **argv){
             *(i+(unsigned long int*)addr_syms_addrs)=min_base+(unsigned long int)*(t1+i);
         }
     }
-    fprintf(stderr,"syms_names: %p\nsyms_addrs: %p\nnum_syms: %d\n",addr_syms_names,addr_syms_addrs,num_syms);
+    //fprintf(stderr,"syms_names: %p\nsyms_addrs: %p\nnum_syms: %d\n",addr_syms_names,addr_syms_addrs,num_syms);
     //Set up the token array.
     p=(char*)addr_token_table;
     for(i=0;i<NUM_TOKEN;++i){
