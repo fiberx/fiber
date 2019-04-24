@@ -149,20 +149,19 @@ int try_locate_relo_symaddr(relo_entry *p,relo_entry *e){
     const int g1=512;
     const int g2=4096;
     fprintf(stderr,"m0 p:%p e:%p\n",p,e);
-    for(;p+g2<e;++p){
+    while(p+g2<e){
         for(i=0;i<g1-1;++i){
             if((p+i)->off+8*g2!=(p+i+g2)->off)
                 break;
             if((p+i)->off+8!=(p+i+1)->off)
                 break;
         }
-        if(i<g1-1){
-            p+=(i+1);
-            continue;
+        if(i>=g1-1){
+            //find it
+            relo_st = p;
+            break;
         }
-        //find it
-        relo_st = p;
-        break;
+        p+=(i+1);
     }
     //locate relo_end for kallsyms_addr section
     //for(p=relo_st;p<e;++p){
@@ -369,8 +368,6 @@ int main(int argc, char **argv){
     p=(char*)addr_syms_names;
     for(i=0;i<num_syms;++i){
         void *pt = (void*)*((long int*)addr_syms_addrs+i);
-        if(!pt)
-            continue;
         buf[0]=0;
         len=*(int*)p;
         len&=0xff;
@@ -381,6 +378,10 @@ int main(int argc, char **argv){
             strcat(buf,tokens[ind]);
         }
         ++p;
+        if(!pt){
+            fprintf(stderr,"Null addr_inf for the symbol: %c %s\n",buf[0],buf+1);
+            continue;
+        }
         if(gen_idc){
             printf("MakeName(%p, \"%s\");\n",pt,buf+1);
         }else{
