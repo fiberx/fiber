@@ -503,11 +503,11 @@ def _combine_subsigs(cfg,g0,g1):
     if p0.intersection(a1):
         t = p0.intersection(s1)
         gs = cluster_padding_nodes(cfg,t)
-        t = set([x.addr for x in gs[0].nodes()])
+        t = set([x.addr for x in gs[0].nodes()]) if len(gs) > 0 else set([])
     elif p1.intersection(a0):
         t = p1.intersection(s0)
         gs = cluster_padding_nodes(cfg,t)
-        t = set([x.addr for x in gs[0].nodes()])
+        t = set([x.addr for x in gs[0].nodes()]) if len(gs) > 0 else set([])
     else:
         #In this case, consider both common predecessor and successor, choose the smaller resulting signature.
         #(1)Predecessor
