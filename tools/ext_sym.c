@@ -50,7 +50,7 @@ int locate_token_table(){
     char *p,*s;
 
     for(p=(char*)st;p+24<=(char*)(st+sz);++p){
-        if(*(int*)p==0x00310030 && *(int*)(p+4)==0x00330032 && *(int*)(p+16)==0x00390038 && in_alphabet(*(char*)(p+20))){
+        if(*(int*)p==0x00310030 && *(int*)(p+4)==0x00330032 && *(int*)(p+16)==0x00390038 && (in_alphabet(*(char*)(p+20)) || in_alphabet(*(char*)(p+21)))){
             break;
         }
     }
@@ -112,7 +112,7 @@ int verify_addr_section(long int *p){
             return 1;
         //fprintf(stderr,"%p %p\n",(void*)*(p+i),(void*)(*(p+i) & 0xffff000000000000));
         //The addr section is actually a 'delta' section, each entry is a 4-byte 'delta' and we should figure out the base address to add. (i.e. relative base address symbol table)
-        //The heuristic here is that the highest few bytes should be 'f' for a normal symbol address in an Aarch64 kernel.
+        //The heuristic here is that the highest few bytes should be 'f' for a normal symbol address in an AArch64 kernel.
         if((*(p+i) & 0xffff000000000000) != 0xffff000000000000)
             return 2;
     }
@@ -147,12 +147,20 @@ unsigned long int guessed_kernel_base_from_relo=0;
 
 int try_locate_relo_symaddr(relo_entry *p,relo_entry *e){
     //Now we need to locate the relo entries for kallsym_addr section, heuristics again...
-    //We should see many consecutive "off" fields, with interval 8 in aarch64.
     int i;
-    const int g1=512;
+    const int g1=4096;
     const int g2=4096;
     fprintf(stderr,"m0 p:%p e:%p\n",p,e);
     while(p+g2<e){
+        /*
+        //Heuristic 0: the first symbol address in the symbol table should be the kernel base address,
+        //so in the corresponding relo_entry, the .add field should be either the base address or 0 (if it's the relative relo).
+        if(p->add != 0 && p->add != guessed_kernel_base_from_relo){
+            ++p;
+            continue;
+        }
+        */
+        //Heuristic 1: We should see many consecutive "off" fields representing the consecutive sym addr entries, with interval 8 in aarch64.
         for(i=0;i<g1-1;++i){
             if((p+i)->off+8*g2!=(p+i+g2)->off)
                 break;
@@ -307,7 +315,7 @@ int main(int argc, char **argv){
     if(addr_code==1){
         fprintf(stderr,"It seems that kallsyms_addresses section is not good, try to do relocation...\n");
         if(!get_relo_sections()){
-            fprintf(stderr,"Fail to get relo section, exit..");
+            fprintf(stderr,"Fail to get relo section, exit..\n");
             return 0;
         }
         if(!try_locate_relo_symaddr(relo_sec,relo_ed)){
@@ -315,7 +323,7 @@ int main(int argc, char **argv){
             return 0;
         }
         fprintf(stderr,"Below relo info is for kallsyms_addresses...\n");
-        fprintf(stderr,"relo_st:%p for off:%p, relo_ed:%p for off:%p\n",relo_st,(void*)(relo_st->off),relo_ed,(void*)(relo_ed->off));
+        fprintf(stderr,"relo_st:%p for off:%p and add:%p, relo_ed:%p for off:%p and add:%p\n",relo_st,(void*)(relo_st->off),(void*)(relo_st->add),relo_ed,(void*)(relo_ed->off),(void*)(relo_ed->add));
         //prepare for the relocated kallsyms_addr section.
         addr_syms_addrs = (void*)malloc(num_syms*8);
         unsigned long int *t1 = (unsigned long int*)addr_syms_addrs;
@@ -350,7 +358,7 @@ int main(int argc, char **argv){
         fprintf(stderr,"Try to figure out the relative base address...\n");
         //TODO: for now we guess the address of kallsyms_relative_base by heuristics.
         if(!get_relo_sections()){
-            fprintf(stderr,"Fail to get relo section, exit..");
+            fprintf(stderr,"Fail to get relo section, exit..\n");
             return 0;
         }
         unsigned long int addr_syms_relb=(unsigned long int)addr_syms_num-0x100;
