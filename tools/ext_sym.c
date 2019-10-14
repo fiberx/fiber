@@ -31,7 +31,15 @@ void *st;
 int sz;
 void *addr_token_table,*addr_token_index;
 void *addr_syms_names,*addr_syms_addrs,*addr_syms_num;
-int num_syms;
+unsigned num_syms;
+char *addr_rel_base_addr = 0;
+unsigned addr_entry_size = 8;
+
+//used as return values of verify_addr_section() to indicate the properties of the kallsyms_addr section.
+#define ADDR_OK 0x0
+#define ADDR_NEEDS_RELOCATION (1<<0)
+#define ADDR_NEEDS_REL_BASE (1<<1)
+#define ADDR_ERR (1<<31)
 
 int in_alphabet(char a){
     if(a>='a' && a<='z')
@@ -73,50 +81,120 @@ int locate_token_table(){
 
 //In this function we assume that the pointer currently points to the start of one section,
 //we will move the pointer to the start of previous section. 
-char* prev_section(char *p){
+char* prev_section(char *p, unsigned align){
     while(!*(--p)); //skip the "zero" gap between two sections.
+    p-=((unsigned long int)p % 4);
     //We assume the "zero" gap is at least 8 bytes long.
     while(*(int*)(p-4) || *(int*)(p-8)){
-        --p;
+        p-=4;
     }
+    p-=((unsigned long int)p % align);
     //We assume the section start is 0x100 aligned.
-    p =(char*)((long unsigned int)p & 0xffffffffffffff00);
+    //p =(char*)((long unsigned int)p & 0xffffffffffffff00);
+    //We assume all sections (addr,name,num,token) have the same lowest 1 byte.
+    //*(char*)&p = *(char*)&addr_token_table;
     return p;
 }
 
+int is_addr_section_zero = 0;
 //Based on token_table address, this function will decide addresses for other sections.
 int locate_other_sections(){
     char *p;
-
+    const unsigned gap_num_rel = 0x1000;
+    const unsigned gap_num_addr = 0x1000;
     //We don't need the token_index section because we can re-construct it according to token_table.
     //(1) Skip kallsyms_markers, we don't need it as well.
-    p=prev_section((char*)addr_token_table);
+    p=prev_section((char*)addr_token_table,4);
     //Now we are at the beginning of the kallsyms_markers section.
     //(2) Locate the start of the syms_names section
-    addr_syms_names=prev_section(p);
+    addr_syms_names=prev_section(p,4);
     //(3) Locate num_syms section and record the symbol amount.
-    p=prev_section((char*)addr_syms_names);
+    p=prev_section((char*)addr_syms_names,4);
     addr_syms_num = p;
-    num_syms=*(int*)p;
-    //(4) Locate the syms_addrs section.
-    addr_syms_addrs=prev_section(p);
-
+    num_syms=*(unsigned*)p;
+    //(4) Here we have multiple different cases:
+    //* There may or may not be a "kernel_relative_base_address" section between the "num" and "addr" sections but its content may be 0 since the relocation.
+    //* The "addr" section can have 8-byte or 4-byte entry size...
+    p=prev_section(p,4);
+    char *addr_end = p;
+    if((unsigned long int)addr_syms_num - (unsigned long int)p < gap_num_rel){
+        //This means there exists a "kernel_relative_base_address" section whose content is not 0.
+        //The kernel rel base address should have its high 4 bytes non-zero.
+        if(!*(int*)(p+4) && (*(int*)p & 0xff000000 == 0xff000000)){
+            addr_rel_base_addr = p - 4;
+        }else{
+            addr_rel_base_addr = p;
+        }
+        //Record the position of the end of the non-zero section above rel_base.
+        while(*(int*)(addr_end-=4));
+        while(!*(int*)(addr_end-=4));
+        addr_end += 4;
+        //Record the position of the start of the non-zero section above rel_base.
+        p=prev_section(p,4);
+    }else{
+        //Record the position of the end of the non-zero section above syms_num..
+        //"p" is already the start of the non-zero section above syms_num.
+        addr_end = addr_syms_num;
+        while(*(int*)(addr_end-=4));
+        while(!*(int*)(addr_end-=4));
+        addr_end += 4;
+    }
+    //(5) Locate the syms_addrs section.
+    fprintf(stderr,"addr_end before addr_sym_num/rel_base: %p\n",(void*)((void*)addr_end-st));
+    if((unsigned long int)addr_syms_num - (unsigned long int)addr_end > gap_num_addr){
+        is_addr_section_zero = 1;
+        //We don't know where the addr section begins in this case (it will be further decided by the relocation information probing)
+        //so now we set it to the start of a zero segment so that the verify_addr_section can make the right decision.
+        addr_syms_addrs = addr_end;
+        //NOTE: It will be unreliable to decide the addr entry size if we have the zero addr section, in this case we rely on the
+        //relocation information probing to decide the entry size.
+    }else{
+        is_addr_section_zero = 0;
+        //If the addr section is non-zero, we can try to decide the addr entry size.
+        if((unsigned long int)addr_syms_num - (unsigned long int)p >= num_syms * 8){
+            //This measn the addr section has 8-byte per entry.
+            addr_entry_size = 8;
+        }else{
+            //4-byte entry
+            addr_entry_size = 4;
+        }
+        addr_syms_addrs = addr_end - addr_entry_size * num_syms;
+    }
     return 1;
 }
 
-int verify_addr_section(long int *p){
+int verify_addr_section(char *p, unsigned entry_size){
     int i;
-    for(i=32;i<64;++i){
-        //The addr section should be relocated.
-        if(!*(p+i))
-            return 1;
-        //fprintf(stderr,"%p %p\n",(void*)*(p+i),(void*)(*(p+i) & 0xffff000000000000));
-        //The addr section is actually a 'delta' section, each entry is a 4-byte 'delta' and we should figure out the base address to add. (i.e. relative base address symbol table)
-        //The heuristic here is that the highest few bytes should be 'f' for a normal symbol address in an AArch64 kernel.
-        if((*(p+i) & 0xffff000000000000) != 0xffff000000000000)
-            return 2;
+    int ret = ADDR_OK;
+    if(entry_size == 4){
+        //Since we are dealing w/ the ARM64 kernel, the address should be 64 bits, so if the addr entry is 4-byte,
+        //there has to be a relative base address, what we need to figure out is whether we still need to relocate the addr section.
+        ret |= ADDR_NEEDS_REL_BASE; 
+        for(i=32;i<64;++i){
+            if(!*(int*)(p+i*4)){
+                ret |= ADDR_NEEDS_RELOCATION;
+                break;
+            }
+        }
+    }else if(entry_size == 8){
+        for(i=32;i<64;++i){
+            //The addr section should be relocated.
+            if(!*(long int*)(p+i*8)){
+                ret |= ADDR_NEEDS_RELOCATION;
+                break;
+            }
+            //fprintf(stderr,"%p %p\n",(void*)*(p+i),(void*)(*(p+i) & 0xffff000000000000));
+            //The addr section is actually a 'delta' section, each entry is a 4-byte 'delta' and we should figure out the base address to add. (i.e. relative base address symbol table)
+            //The heuristic here is that the highest few bytes should be 'f' for a normal symbol address in an AArch64 kernel.
+            if((*(long int*)(p+i*8) & 0xffff000000000000) != 0xffff000000000000){
+                ret |= ADDR_NEEDS_REL_BASE;
+                break;
+            }
+        }
+    }else{
+        return ADDR_ERR;
     }
-    return 0;
+    return ret;
 }
 
 typedef struct relo_entry{
@@ -139,48 +217,62 @@ int is_relo_entry(relo_entry *p){
 
 relo_entry *relo_st=0;
 relo_entry *relo_ed=0;
-unsigned long int *kallsyms_addr=0;
+char *kallsyms_addr=0;
 relo_section relo_secs[16];
 int num_secs=0;
 relo_entry *relo_sec=0;
 unsigned long int guessed_kernel_base_from_relo=0;
 
+//This function tries to identify the relocation entries for the kallsyms_addr section, BTW it can probe
+//the "addr_entry_size" and the start address of kallsyms_addr section.
 int try_locate_relo_symaddr(relo_entry *p,relo_entry *e){
     //Now we need to locate the relo entries for kallsym_addr section, heuristics again...
     int i;
-    const int g1=4096;
+    const int g1_min=2048;
+    const int g1_max=4096;
     const int g2=4096;
     fprintf(stderr,"m0 p:%p e:%p\n",p,e);
-    while(p+g2<e){
-        /*
-        //Heuristic 0: the first symbol address in the symbol table should be the kernel base address,
-        //so in the corresponding relo_entry, the .add field should be either the base address or 0 (if it's the relative relo).
-        if(p->add != 0 && p->add != guessed_kernel_base_from_relo){
-            ++p;
-            continue;
+    for(addr_entry_size=8;addr_entry_size>=4;addr_entry_size-=4){
+        int g1 = g1_max;
+        while(!relo_st && g1>=g1_min){
+            while(p+g2+g1<e){
+                /*
+                //Heuristic 0: the first symbol address in the symbol table should be the kernel base address,
+                //so in the corresponding relo_entry, the .add field should be either the base address or 0 (if it's the relative relo).
+                if(p->add != 0 && p->add != guessed_kernel_base_from_relo){
+                    ++p;
+                    continue;
+                }
+                */
+                //Heuristic 1: We should see many consecutive "off" fields representing the consecutive sym addr entries, with interval 8 or 4 depending on the addr section entry size.
+                for(i=0;i<g1-1;++i){
+                    if((p+i)->off+addr_entry_size*g2!=(p+i+g2)->off)
+                        break;
+                    if((p+i)->off+addr_entry_size!=(p+i+1)->off)
+                        break;
+                }
+                if(i>=g1-1){
+                    //find it
+                    relo_st = p;
+                    goto exit;
+                }
+                p+=(i+1);
+            }
+            g1>>=1;
         }
-        */
-        //Heuristic 1: We should see many consecutive "off" fields representing the consecutive sym addr entries, with interval 8 in aarch64.
-        for(i=0;i<g1-1;++i){
-            if((p+i)->off+8*g2!=(p+i+g2)->off)
-                break;
-            if((p+i)->off+8!=(p+i+1)->off)
-                break;
-        }
-        if(i>=g1-1){
-            //find it
-            relo_st = p;
-            break;
-        }
-        p+=(i+1);
     }
+exit:
+    if(!relo_st){
+        return 0;
+    }
+    fprintf(stderr,"try_locate_relo_symaddr(): probed addr_entry_size: %d\n",addr_entry_size);
     //locate relo_end for kallsyms_addr section
     //for(p=relo_st;p<e;++p){
-    //    if(p->off+8!=(p+1)->off)
+    //    if(p->off+addr_entry_size!=(p+1)->off)
     //        break;
     //}
     //relo_ed=p;
-    kallsyms_addr=(unsigned long int*)relo_st->off;
+    kallsyms_addr=(char*)(relo_st->off);
     //fprintf(stderr,"try_locate_relo_symaddr st:%p ed:%p\n",relo_st,relo_ed);
     return 1;
 }
@@ -228,7 +320,8 @@ int get_relo_sections(){
             continue;
         }
         //continue to find
-        p=(relo_entry*)((char*)p+8);
+        //NOTE: some kernel images may be aligned to 4 bytes instead of 8, so we'd better make the step of 4.
+        p=(relo_entry*)((char*)p+4);
     }
     if(!num_secs){
         fprintf(stderr,"Cannot locate any relo_sec..");
@@ -257,6 +350,27 @@ int get_relo_sections(){
     guessed_kernel_base_from_relo = relo_sec->off & 0xfffffffffffff000;
     fprintf(stderr,"guessed_kernel_base_from_relo: %016lx\n",guessed_kernel_base_from_relo);
     return 1;
+}
+
+//arg: the addr of the rel_base section
+//return the kernel rel base addr.
+unsigned long int relocate_kernel_rel_base(unsigned long int* addr_syms_relb){
+    unsigned long int min_base = 0xffffffffffffffff; 
+    if((unsigned long int)addr_syms_relb <= (unsigned long int)st){
+        return min_base;
+    }
+    unsigned long int delta_syms_relb=(unsigned long int)addr_syms_relb-(unsigned long int)st;
+    relo_entry *rp = relo_sec;
+    for(;rp<relo_ed;++rp){
+        //Is this heuristic reliable?
+        //unsigned long int t = rp->add + (rp->inf>>32);
+        unsigned long int t = rp->add;
+        if(rp->off==t + delta_syms_relb){
+            if(t<min_base)
+                min_base=t;
+        }
+    }
+    return min_base + *addr_syms_relb;
 }
 
 #define NUM_TOKEN 256
@@ -310,16 +424,23 @@ int main(int argc, char **argv){
     fprintf(stderr,"syms_names: +%p\n",(void*)(addr_syms_names-st));
     fprintf(stderr,"syms_addrs: +%p\n",(void*)(addr_syms_addrs-st));
     fprintf(stderr,"syms_num: +%p(#%d)\n",(void*)(addr_syms_num-st),num_syms);
-    //Here we should verify that the kallsyms_addresses section is valid, some kernels need relocation to fill this section and some kernels use 'relative base address' symbol table..
-    int addr_code = verify_addr_section(addr_syms_addrs);
-    if(addr_code==1){
-        fprintf(stderr,"It seems that kallsyms_addresses section is not good, try to do relocation...\n");
+    fprintf(stderr,"rel_base_addr: +%p\n",addr_rel_base_addr ? (void*)((void*)addr_rel_base_addr-st) : (void*)addr_rel_base_addr);
+    fprintf(stderr,"is_addr_section_zero: %d, addr_entry_size: %u\n",is_addr_section_zero,addr_entry_size);
+    //Here we should verify that the kallsyms_addresses section is valid, some kernels need relocation to fill this section and some kernels use 'relative base address' symbol table,
+    //some kernels have the 4-byte addr entry size and some have 8-byte one.
+    int addr_code = ADDR_NEEDS_RELOCATION;
+    if(!is_addr_section_zero){
+        addr_code = verify_addr_section(addr_syms_addrs,addr_entry_size);
+    }
+    int addr_relocated = 0;
+    if(addr_code & ADDR_NEEDS_RELOCATION){
+        fprintf(stderr,"The kallsyms_addresses section needs a relocation...\n");
         if(!get_relo_sections()){
             fprintf(stderr,"Fail to get relo section, exit..\n");
             return 0;
         }
         if(!try_locate_relo_symaddr(relo_sec,relo_ed)){
-            fprintf(stderr,"Cannot locate relo inf for kallsym_addr..");
+            fprintf(stderr,"Cannot locate relo inf for kallsym_addr..\n");
             return 0;
         }
         fprintf(stderr,"Below relo info is for kallsyms_addresses...\n");
@@ -328,64 +449,88 @@ int main(int argc, char **argv){
         addr_syms_addrs = (void*)malloc(num_syms*8);
         unsigned long int *t1 = (unsigned long int*)addr_syms_addrs;
         relo_entry *t2 = relo_st;
-        unsigned long int *t3;
-        for(i=0;i<num_syms&&t2<relo_ed;++i){
+        char *t3;
+        for(i=0;i<num_syms && t2<relo_ed;++i){
             //t3 is the kallsyms_addr section entry address for current symbol.
-            t3=kallsyms_addr+i;
+            t3=kallsyms_addr+i*addr_entry_size;
+            while(t2->off<(unsigned long int)t3 && t2<relo_ed)
+                ++t2;
+            if (t2 >= relo_ed)
+                break;
             if(t2->off==(unsigned long int)t3){
-                //*(t1+i)=t2->add + (t2->inf>>32);
-                *(t1+i)=t2->add & 0xff00000000000000 ? t2->add : t2->add + guessed_kernel_base_from_relo;
+                if(addr_entry_size == 4){
+                    //*(t1+i)= t2->add + (t2->inf>>32);
+                    *(t1+i) = t2->add;
+                }else{
+                    //*(t1+i)= t2->add + (t2->inf>>32);
+                    *(t1+i) = t2->add;
+                }
                 ++t2;
             }else if(t2->off>(unsigned long int)t3){
                 //this means we don't have this symbol's address even with relocation information.
-                *(t1+i)=0;
-            }else{
-                //how could this happen?
-                while(t2->off<(unsigned long int)t3&&t2<relo_ed)
-                    ++t2;
-                if(t2->off==(unsigned long int)t3){
-                    //*(t1+i)=t2->add + (t2->inf>>32);
-                    *(t1+i)=t2->add & 0xff00000000000000 ? t2->add : t2->add + guessed_kernel_base_from_relo;
-                    ++t2;
-                }else{
-                    *(t1+i)=0;
-                }
+                *(t1+i) = 0;
             }
         }
-    }else if(addr_code==2){
-        //TODO: Currently we assume that  kallsyms_relative_base needs to be relocated, thus its content is ZERO. This *may not* hold!!
+        fprintf(stderr,"Addr entries relocated: %d/%d\n",i,num_syms);
+        //After relocating the addr section, we may still need to rebase each entry.
+        addr_code = verify_addr_section(addr_syms_addrs,8);
+        addr_relocated = 1;
+    }
+    if(addr_code & ADDR_NEEDS_REL_BASE){
         fprintf(stderr,"This kernel should use relative-base-address format symbol table.\n");
         fprintf(stderr,"Try to figure out the relative base address...\n");
-        //TODO: for now we guess the address of kallsyms_relative_base by heuristics.
-        if(!get_relo_sections()){
+        if(!relo_sec && !get_relo_sections()){
             fprintf(stderr,"Fail to get relo section, exit..\n");
             return 0;
         }
-        unsigned long int addr_syms_relb=(unsigned long int)addr_syms_num-0x100;
-        unsigned long int delta_syms_relb=addr_syms_relb-(unsigned long int)st;
-        relo_entry *rp = relo_sec;
-        unsigned long int min_base = 0xffffffffffffffff; 
-        for(;rp<relo_ed;++rp){
-            //Is this heuristic reliable?
-            //unsigned long int t = rp->add + (rp->inf>>32);
-            unsigned long int t = rp->add;
-            if(rp->off==t + delta_syms_relb){
-                if(t<min_base)
-                    min_base=t;
+        unsigned long int base_addr = 0xffffffffffffffff;
+        if(addr_rel_base_addr){
+            //Ok, we have the kernel_rel_base_addr section w/ non-zero content.
+            base_addr = *(unsigned long int*)addr_rel_base_addr;
+            fprintf(stderr,"We have a non-zero rel_base section whose value is: %p\n",(void*)base_addr);
+            if((base_addr & 0xff00000000000000) != 0xff00000000000000){
+                //This rel_base itself needs to be relocated.
+                base_addr = relocate_kernel_rel_base((unsigned long int*)addr_rel_base_addr);
+                fprintf(stderr,"Still need to relocate the non-zero rel_base section, after that: %p\n",(void*)base_addr);
+            }
+        }else{
+            //Needs to probe the correct kernel_rel_base_addr section address and do the relocation at the same while.
+            fprintf(stderr,"We don't know the exact rel_base section address, try and probe...\n");
+            char *pr = (char*)addr_syms_num - 8;
+            int max_cnt = 0x100;
+            while(!*(long int*)pr && max_cnt--){
+                unsigned long int t_base = relocate_kernel_rel_base((unsigned long int*)pr);
+                if (t_base < base_addr) {
+                    base_addr = t_base;
+                }
+                pr -= 4;
+            }
+            fprintf(stderr,"Probed kernel base address: %p\n",(void*)base_addr);
+        }
+        if (base_addr != guessed_kernel_base_from_relo){
+            fprintf(stderr,"Probed base address is not equal to guessed_kernel_base_from_relo, if something bad happens later, consider to use guessed_kernel_base_from_relo\n");
+            if (base_addr == 0xffffffffffffffff) {
+                base_addr = guessed_kernel_base_from_relo;
             }
         }
-        fprintf(stderr,"Probed base address: %p\n",(void*)min_base);
-        if (min_base != guessed_kernel_base_from_relo){
-            fprintf(stderr,"Probed base address is not equal to guessed_kernel_base_from_relo, if something bad happens later, consider to use guessed_kernel_base_from_relo\n");
+        //First create a new addr table to unify the 4-byte and 8-byte entry.
+        if(!addr_relocated){
+            void *new_addr_table = (void*)malloc(num_syms*8);
+            if(addr_entry_size == 4){
+                for(i=0;i<num_syms;++i){
+                    *((int*)new_addr_table+i*2) = *((int*)addr_syms_addrs+i);
+                    *((int*)new_addr_table+i*2+1) = 0;
+                }
+            }else{
+                memcpy((char*)new_addr_table,(char*)addr_syms_addrs,num_syms*8);
+            }
+            addr_syms_addrs = new_addr_table;
         }
-        //Generate the real kallsyms_addr table
-        unsigned int *t1 = (unsigned int*)addr_syms_addrs;
-        addr_syms_addrs = (unsigned long int*)malloc(num_syms*8);
+        //Ok, rebase the addr section now.
         for(i=0;i<num_syms;++i){
-            *(i+(unsigned long int*)addr_syms_addrs)=min_base+(unsigned long int)*(t1+i);
+            *((unsigned long int*)addr_syms_addrs+i) += base_addr;
         }
     }
-    //fprintf(stderr,"syms_names: %p\nsyms_addrs: %p\nnum_syms: %d\n",addr_syms_names,addr_syms_addrs,num_syms);
     //Set up the token array.
     p=(char*)addr_token_table;
     for(i=0;i<NUM_TOKEN;++i){
