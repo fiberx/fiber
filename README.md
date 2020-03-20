@@ -126,7 +126,7 @@ A file specifying the signatures that needs to be tested in the target kernel. T
 
 **Output**:  
 The matcher will output the results to both the screen and an automatically generated file *match\_res\_[image]\_[timestamp]*.
-As mentioned, different formats of *signature_list* will result in different outputs. If we are in mode 0 (binary signature validation), its outputs for unpatched and patched reference kernels (eg. *examples/match_res_angler_img_20160513_1528152449_m0* and *examples/match_res_angler_img_20170513_1528152555_m0*) can the be feed to *res_analyzer* (see section 5.2) which will then generate the mode 1 signature list (eg. *examples/sig_list_1*) that can be used to test real target kernels.
+As mentioned, different formats of *signature_list* will result in different outputs. If we are in mode 0 (binary signature validation), its outputs for unpatched and patched reference kernels (eg. *examples/match_res_angler_img_20160513_1528152449_m0* and *examples/match_res_angler_img_20170513_1528152555_m0*) can then be fed to *res_analyzer* (see section 5.2) which will then generate the mode 1 signature list (eg. *examples/sig_list_1*) that can be used to test real target kernels.
 
 ## 0x5 Auxilary Tools
 
