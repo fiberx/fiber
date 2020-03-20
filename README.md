@@ -1,10 +1,18 @@
-# fiber
+# Fiber
 
-Source-binary patch presence test system.
+Source-binary patch presence test system. Given a target software binary (Android kernel image) and a security patch (in source), Fiber can check if the patch has been applied in the target binary. 
 
 The design, implementation, and more details of fiber can be found in our research paper:
 
 *Hang Zhang and Zhiyun Qian. "[Precise and accurate patch presence test for binaries.](https://www.usenix.org/system/files/conference/usenixsecurity18/sec18-zhang.pdf)" USENIX Security 2018.*
+
+## Background
+
+Surprisingly often, open source components get integrated into larger software and eventually released in binary forms only. Take Linux as an example: IoT devices, cars, voting machines, and Android smartphones all use some derived version of Linux kernel (possibly customized). Unfortunately, as end users or independent researchers, we don't get access to the source code. Yes, Android device vendors (e.g., Samsung, Xiaomi) do not necessarily release the complete kernel source history (no individual commit is given) and most OTA updates do not come with corresponding source code. This makes it hard to check if any security patch has been applied. Another example, car manufacturers often take binaries from third-parties (infotainment system) who in turn integrate other open source components. Car manufacturers may want to ensure the security of these binaries but again don't have access to source code. This is what Fiber is designed for.
+
+## Key insight
+
+Checking the presence of a patch in binary is inherently challenging because the patch can be small (affecting only few instructions) which can be burried/obscured by other non-security updates to the codebase afterwards. Compiler configs also drastically influence the compiled binary instructions. Our insight is that if the patch source is available (which is the case for open source software such as Linux), then we can take advantage of it to extract a proper signature based on how control and data flow are perturbed because of the patch.
 
 ## 0x0 A Simple Workflow
 
