@@ -2,6 +2,10 @@
 
 Source-binary patch presence test system.
 
+The design, implementation, and more details of fiber can be found in our research paper:
+
+*Hang Zhang and Zhiyun Qian. "[Precise and accurate patch presence test for binaries.](https://www.usenix.org/system/files/conference/usenixsecurity18/sec18-zhang.pdf)" USENIX Security 2018.*
+
 ## 0x0 A Simple Workflow
 
 We will briefly explain fiber's workflow here with the examples under *examples* folder. Basically, we prepared some security patches under *examples/patches* folder, our reference kernel *examples/imgs/angler_img_20170513* adopts all these patches but *examples/imgs/angler_img_20160513* does not. We then generate binary signatures (stored in *examples/sigs*) for these patches and then use them to test the patch presence for the target kernel (*examples/imgs/image-G9300-160909*, Samsung S7 kernel released in 2016/09/09). The test result can be found in *examples/match_res_image-G9300-160909_1528162862_m1* where **P** means the related patch has been adopted and **N** otherwise.
