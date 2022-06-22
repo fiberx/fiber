@@ -6,7 +6,7 @@ import copy,re
 import time
 import networkx
 try:
-    import cPickle as pickle
+    import pickle as pickle
 except ImportError:
     import pickle
 
@@ -36,15 +36,15 @@ def try_dfg():
     #in both ins 1 and 2, thus we lost the dependency between ins 1 and 2. (now they both depends on t0, but without relationship between themselves). 
     dfg = b.analyses.DFG(nodes=[n.addr],opt_level=0)
     
-    print '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+    print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
     print_vex_blocks(b,[n.addr])
-    print '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'
+    print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
     ndfg = dfg.dfgs[start]
     for node in ndfg.nodes():
-        print node
-    print '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'
+        print(node)
+    print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
     for root in get_root_nodes_from_dfg(ndfg):
-        print root
+        print(root)
 
 def try_vfg():
     b = load_kernel_image(sys.argv[1],ARCH,BASE)
@@ -60,7 +60,7 @@ def try_vfg():
     st.inspect.b('address_concretization', when=simuvex.BP_AFTER, action=addr_conc_capture)
 
     vfg = b.analyses.VFG(cfg=cfg, context_sensitivity_level=0, start=start, function_start=start, initial_state=None, interfunction_level=0)
-    print vfg
+    print(vfg)
 
 def print_cfg_graph(start,end):
     b = load_kernel_image(sys.argv[1],ARCH,BASE)
@@ -74,7 +74,7 @@ def print_cfg_graph(start,end):
     s_set = set()
     for n in func_cfg.nodes():
         (addr,sz) = _get_as(n)
-        print '---------%s,%s---------' % (addr,sz)
+        print('---------%s,%s---------' % (addr,sz))
         n_set.add(addr + '-' + sz)
         preds_str = 'Preds: '
         for x in func_cfg.predecessors(n):
@@ -86,11 +86,11 @@ def print_cfg_graph(start,end):
             (addr,sz) = _get_as(x)
             succs_str = succs_str + '[%s,%s] '%(addr,sz)
             s_set.add(addr + '-' + sz)
-        print preds_str
-        print succs_str
-    print 'Only in n_set: ' + str(n_set.difference(p_set,s_set))
-    print 'Only in p_set but not n_set: ' + str(p_set.difference(n_set))
-    print 'Only in s_set but not n_set: ' + str(s_set.difference(n_set))
+        print(preds_str)
+        print(succs_str)
+    print('Only in n_set: ' + str(n_set.difference(p_set,s_set)))
+    print('Only in p_set but not n_set: ' + str(p_set.difference(n_set)))
+    print('Only in s_set but not n_set: ' + str(s_set.difference(n_set)))
 
 def print_vex(addrs):
     b = load_kernel_image(sys.argv[1],ARCH,BASE)
@@ -103,9 +103,9 @@ def print_capstone(addrs):
         #print type(caps.insns[0].insn)
         #print dir(caps.insns[0].insn)
         #print type(caps.insns[0].insn.mnemonic)
-        print caps.insns[0].insn.mnemonic
+        print(caps.insns[0].insn.mnemonic)
         #print caps.insns[0].insn.insn_name
-        print caps
+        print(caps)
 
 def show_pickled_sig():
     with open(sys.argv[1],'rb') as f:
@@ -114,7 +114,7 @@ def show_pickled_sig():
 
 def test_segments():
     segments = get_code_segments(sys.argv[1],BASE)
-    print [(hex(x),hex(y),hex(z)) for (x,y,z) in segments]
+    print([(hex(x),hex(y),hex(z)) for (x,y,z) in segments])
 
 if __name__ == '__main__':
     #print_cfg_graph(0xffffff8008dddbcc,0xffffff8008dddec8)

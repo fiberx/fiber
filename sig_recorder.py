@@ -47,7 +47,7 @@ class Sig_Recorder(object):
     #Given an instruction address, this function should decide whether it belongs to any signature code area,
     #if so, set current sig and node. 
     def _sig_brk_get_node(self,ins_addr):
-        if not self._sig_roots.has_key(ins_addr):
+        if ins_addr not in self._sig_roots:
             return False
         else:
             self._cur_sig_node = self._sig_roots[ins_addr]
@@ -70,7 +70,7 @@ class Sig_Recorder(object):
         if not self._sig_brk_get_node(ins_addr):
             return
         formulas = self._pre_record(ins_addr)
-        if formulas['type'] <> 'load' and formulas['type'] <> 'other':
+        if formulas['type'] != 'load' and formulas['type'] != 'other':
             #these types should be processed in other breakpoints.
             return
         #Record the formulas for pre-determined registers.
@@ -86,7 +86,7 @@ class Sig_Recorder(object):
         if not self._sig_brk_get_node(ins_addr):
             return
         formulas = self._pre_record(ins_addr)
-        if formulas['type'] <> 'store':
+        if formulas['type'] != 'store':
             return
         data = self.tracer.get_formula(state,state.inspect.mem_write_expr)
         addr = self.tracer.get_formula(state,state.inspect.mem_write_address)
@@ -101,9 +101,9 @@ class Sig_Recorder(object):
         if not self._sig_brk_get_node(ins_addr):
             return
         formulas = self._pre_record(ins_addr)
-        if formulas['type'] <> 'exit':
+        if formulas['type'] != 'exit':
             #Some basic blocks may end just with a normal data instruction.
-            print 'This exit instruction is not of type -exit-: ' + hex(ins_addr) + ', ' + formulas['type']
+            print('This exit instruction is not of type -exit-: ' + hex(ins_addr) + ', ' + formulas['type'])
             return
         addr = self.tracer.get_formula(state,state.inspect.exit_target)
         guard = self.tracer.get_formula(state,state.inspect.exit_guard)

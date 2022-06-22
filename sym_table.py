@@ -45,7 +45,7 @@ class Sym_Table(object):
 
     #The 'k' can be either symbol name or addr, return the information tuple.
     def lookup(self,k):
-        if isinstance(k,int) or isinstance(k,long):
+        if isinstance(k,int) or isinstance(k,int):
             return self._sym_table[k] if k in self._sym_table else None
         elif isinstance(k,str):
             return self._r_sym_table[k] if k in self._r_sym_table else None
@@ -57,7 +57,7 @@ class Sym_Table(object):
         (addr,size) = (0,0)
         if not func_list:
             if self.dbg_out:
-                print 'Cannot find function name in symbol table: ' + n
+                print('Cannot find function name in symbol table: ' + n)
             return None
         else:
             #print func_list
@@ -67,18 +67,18 @@ class Sym_Table(object):
                     break
             if (addr,size) == (0,0):
                 if self.dbg_out:
-                    print 'No symbol entry picked.'
+                    print('No symbol entry picked.')
                 return None
             else:
                 if self.dbg_out:
-                    print '[Func] %s: %x - %x' % (n,addr,addr + size)
+                    print('[Func] %s: %x - %x' % (n,addr,addr + size))
                 return (ty,addr,size)
 
     def probe_arm64_kernel_base(self):
         for (addr,ty,name) in self.raw_syms:
             if addr >= 0xffff000000000000 and ty in ('T','t'):
                 break
-        print 'Probed image base address: %x' % addr
+        print('Probed image base address: %x' % addr)
         return addr
 
     #Decide the code ('t'/'T') segments according to the symbol table file.
@@ -100,4 +100,4 @@ class Sym_Table(object):
             #This should be in general impossible, but what if the symbol table has a tailing 't' section?
             segments.append((prev_st,addr))
         #(file_offset,mem_addr,size)
-        return map(lambda (st,ed):(st-base,st-base,ed-st),segments)
+        return [(st_ed[0]-base,st_ed[0]-base,st_ed[1]-st_ed[0]) for st_ed in segments]

@@ -13,7 +13,7 @@ from utils_sig import *
 from claripy import operations
 from fuzzywuzzy import fuzz
 try:
-    import cPickle as pickle
+    import pickle as pickle
 except ImportError:
     import pickle
 from sym_tracer import Sym_Tracer
@@ -45,7 +45,7 @@ def node_matcher(d1,d2):
     #Don't perform further comparison if one node is purely for padding.
     if 'padding' in d1 or 'padding' in d2:
         return True
-    if d1['jumpkind'] <> d2['jumpkind']:
+    if d1['jumpkind'] != d2['jumpkind']:
         return False
     if d1['jumpkind'] == 'Ijk_Call':
         #Match the function name if any.
@@ -54,7 +54,7 @@ def node_matcher(d1,d2):
                 return False
     #if d1['out_d'] <> d2['out_d'] or d1['in_d'] <> d2['in_d']:
     #    return False
-    if d1['out_d'] <> d2['out_d']:
+    if d1['out_d'] != d2['out_d']:
         return False
     return True
 
@@ -64,7 +64,7 @@ def _cnt_formula_type(formulas):
     m = {}
     for addr in formulas:
         ty = formulas[addr]['type']
-        if m.has_key(ty):
+        if ty in m:
             m[ty] = m[ty] + 1
         else:
             m[ty] = 1
@@ -79,7 +79,7 @@ def _cnt_formula_type(formulas):
 #That's to say, for all types in t2, t1 also has them and the amount is no less than that in t2.
 def _type_contains(t1,t2):
     for k in t2:
-        if not t1.has_key(k):
+        if k not in t1:
             return False
         elif t1[k] < t2[k]:
             return False
@@ -115,8 +115,8 @@ def graph_match(sig,proj,cfg,sym_tab=None):
     for it in digm.subgraph_isomorphisms_iter():
         #Each iter here is a possible match (i.e. a candidate)
         #At first wrap it into a sig structure.
-        addrs = [x.addr for x in it.keys()]
-        print '[TOPO MATCH] ' + hex_array_sorted(addrs)
+        addrs = [x.addr for x in list(it.keys())]
+        print('[TOPO MATCH] ' + hex_array_sorted(addrs))
         #We guarantee in extraction phase that every signature is connected, so here the candidate signature must also be connected, thus we
         #can directly use init_signature(...)[0].
         c_sig = init_signature(proj,cfg,addrs,sym_tab=sym_tab)[0]
@@ -130,7 +130,7 @@ def graph_match(sig,proj,cfg,sym_tab=None):
         #Do some preliminary filtering before the real symbolic execution.
         if pre_filter(c_sig,sig,mapping):
             candidates.append((c_sig,mapping))
-    print '%d candidates after graph_match()' % len(candidates)
+    print('%d candidates after graph_match()' % len(candidates))
     return candidates
 
 #Compare two function name strings, we should give this some flexibility (not strict string comparison).
@@ -152,7 +152,7 @@ def _cmp_func_name(n1,n2,ratio=85):
 def cmp_hz_extra(f1,f2,options):
     h1 = f1.hz_extra
     h2 = f2.hz_extra
-    if h1['type'] <> h2['type']:
+    if h1['type'] != h2['type']:
         return False
     ty = h1['type']
     if ty == Sym_Tracer.REG_TYPE:
@@ -163,13 +163,13 @@ def cmp_hz_extra(f1,f2,options):
             return True
         #For some special regs (like the parameter registers) we may want exact matching.
         #User can specify such a reg list to be exactly matched.
-        m_set = options['match_reg_set'] if options.has_key('match_reg_set') else set()
+        m_set = options['match_reg_set'] if 'match_reg_set' in options else set()
         if r1 in m_set or r2 in m_set:
             return False
         return True
     elif ty == Sym_Tracer.MEM_TYPE:
         #We need to look at the addr formula behind this mem symbolic value.
-        if not h1.has_key('mem_formula') or not h2.has_key('mem_formula'):
+        if 'mem_formula' not in h1 or 'mem_formula' not in h2:
             if 'mem_formula' in h1 or 'mem_formula' in h2:
                 #One has and one not.
                 return False
@@ -178,18 +178,18 @@ def cmp_hz_extra(f1,f2,options):
         return cmp_formula(h1['mem_formula'],h2['mem_formula'],options,is_mem_addr=True)
     elif ty == Sym_Tracer.RET_TYPE:
         #This is a function return value.
-        policy = options['match_ret_policy'] if options.has_key('match_ret_policy') else 'free'
+        policy = options['match_ret_policy'] if 'match_ret_policy' in options else 'free'
         if policy == 'free':
             return True
         elif policy == 'by_name':
-            n1 = h1['func_name'] if h1.has_key('func_name') else None
-            n2 = h2['func_name'] if h2.has_key('func_name') else None
+            n1 = h1['func_name'] if 'func_name' in h1 else None
+            n2 = h2['func_name'] if 'func_name' in h2 else None
             if n1 is None or n2 is None:
                 #TODO: is it proper to use 'free' policy as fall back here?
                 return True
             return _cmp_func_name(n1,n2)
         else:
-            print 'Unrecognized match_ret_policy: ' + policy
+            print('Unrecognized match_ret_policy: ' + policy)
             return True
     elif ty == Sym_Tracer.UNK_TYPE:
         #TODO: is it proper to do it conservatively here?
@@ -206,7 +206,7 @@ def cmp_formula(f1,f2,options,**kwargs):
         if type(f1) != type(f2):
             return False
         # They are not ASTs
-        return False if f1 <> f2 else True
+        return False if f1 != f2 else True
     #We have two layers of AST to compare: the original AST and our 'hz_extra' comments on its leaf symbolic nodes.
     #So basically we will do a standard recursive AST match here, but whenever we meet a symbolic leaf node, we also
     #try to match its 'hz_extra' information, which may include another formula AST.
@@ -218,13 +218,13 @@ def cmp_formula(f1,f2,options,**kwargs):
         op = f1.op
         if op in operations.leaf_operations_symbolic:
             #It's time to check 'hz_extra'
-            if f1.hz_extra.has_key('type') and f2.hz_extra.has_key('type'):
+            if 'type' in f1.hz_extra and 'type' in f2.hz_extra:
                 return cmp_hz_extra(f1,f2,options=options)
             else:
                 #One or all formulas haven't even been processed by Sym_Tracer.
-                print '[CMP] No trace information, f1: %s %s ||| f2: %s %s' % (str(f1),str(f1.hz_extra.has_key('type')),str(f2),str(f2.hz_extra.has_key('type')))
+                print('[CMP] No trace information, f1: %s %s ||| f2: %s %s' % (str(f1),str('type' in f1.hz_extra),str(f2),str('type' in f2.hz_extra)))
                 #TODO: we may need to develop a more complicated logic here.
-                return (not f1.hz_extra.has_key('type') and not f2.hz_extra.has_key('type'))
+                return ('type' not in f1.hz_extra and 'type' not in f2.hz_extra)
         elif op in operations.leaf_operations_concrete:
             _cmp_conc = lambda x,y:str(x).split(' ')[1] == str(y).split(' ')[1]
             _to_int = lambda x:int(str(x).split(' ')[1][:-1],16)
@@ -233,7 +233,7 @@ def cmp_formula(f1,f2,options,**kwargs):
             if policy == 'free':
                 return True
             elif policy == 'strict':
-                if op <> 'BoolV':
+                if op != 'BoolV':
                     threshold = 0x2000
                     if _to_int(f1) > threshold and _to_int(f2) > threshold:
                         return True
@@ -242,7 +242,7 @@ def cmp_formula(f1,f2,options,**kwargs):
                 is_mem_addr = kwargs.get('is_mem_addr',True)
                 return True if is_mem_addr else _cmp_conc(f1,f2)
             else:
-                print 'Unrecognized match_conc_policy: ' + policy
+                print('Unrecognized match_conc_policy: ' + policy)
                 return True
         elif op == 'If':
             policy = options.get('match_ite_2_policy','contain')
@@ -256,7 +256,7 @@ def cmp_formula(f1,f2,options,**kwargs):
             elif policy == 'strict':
                 return general_ast_match(f1,f2,options,**kwargs)
             else:
-                print 'Unrecognized match_ite_2_policy: ' + policy
+                print('Unrecognized match_ite_2_policy: ' + policy)
                 return False
         elif op in operations.commutative_operations.union({'__eq__','__ne__'}):
             #For these ASTs, their args are commutative, so we should do order-insensitive comparison here.
@@ -281,7 +281,7 @@ def cmp_formula(f1,f2,options,**kwargs):
                 ti = _extract_if_terms(fi)
                 return _match_ast_sets(set([fj]),ti,options,**kwargs)
             else:
-                print 'Unrecognized match_ite_1_policy: ' + policy
+                print('Unrecognized match_ite_1_policy: ' + policy)
                 return False
         elif (f1.op in operations.leaf_operations_symbolic and f2.op in operations.leaf_operations_concrete) or \
              (f2.op in operations.leaf_operations_symbolic and f1.op in operations.leaf_operations_concrete):
@@ -297,7 +297,7 @@ def cmp_formula(f1,f2,options,**kwargs):
                 fs = f1 if f1.op in operations.leaf_operations_symbolic else f2
                 fc = f2 if f1.op in operations.leaf_operations_symbolic else f1
                 ty = fs.hz_extra.get('type',None)
-                if ty <> Sym_Tracer.MEM_TYPE:
+                if ty != Sym_Tracer.MEM_TYPE:
                     return False
                 else:
                     return True if fs.hz_extra.get('mem_formula',None) is None else False
@@ -306,7 +306,7 @@ def cmp_formula(f1,f2,options,**kwargs):
             elif policy == 'free':
                 return True
             else:
-                print 'Unrecognized match_sym_conc_policy: ' + policy
+                print('Unrecognized match_sym_conc_policy: ' + policy)
                 return False
         elif f1.op == 'Concat' or f2.op == 'Concat':
             fc = f1 if f1.op == 'Concat' else f2
@@ -375,7 +375,7 @@ def _match_ast_tuple_sets(sigs,cands,options,single_mapping=False,data_ind=set()
     for sft in sigs:
         for ci in range(len(cands)):
             cft = cands[ci]
-            if len(sft) <> len(cft):
+            if len(sft) != len(cft):
                 continue
             for i in range(len(sft)):
                 is_mem_addr = False if i in data_ind else True
@@ -398,15 +398,15 @@ def _formula_match_load(sig_forms,cand_forms):
 
 #Match two set of 'store' type formulas, decide whether all formulas in original signature are contained in candidate signature.
 def _formula_match_store(sig_forms,cand_forms):
-    sig_ad = map(lambda (a,d,l):(a,d),sig_forms)
-    cand_ad = map(lambda (a,d,l):(a,d),cand_forms)
+    sig_ad = [(a_d_l[0],a_d_l[1]) for a_d_l in sig_forms]
+    cand_ad = [(a_d_l1[0],a_d_l1[1]) for a_d_l1 in cand_forms]
     single_mapping = default_options.get('match_store_single_mapping',False)
     return _match_ast_tuple_sets(sig_ad,cand_ad,default_options,data_ind=set([1]),single_mapping=single_mapping)
 
 #Match two set of 'exit' type formulas, decide whether all formulas in original signature are contained in candidate signature.
 def _formula_match_exit(sig_forms,cand_forms):
-    sig_g = map(lambda (a,g,k):g,sig_forms)
-    cand_g = map(lambda (a,g,k):g,cand_forms)
+    sig_g = [a_g_k[1] for a_g_k in sig_forms]
+    cand_g = [a_g_k2[1] for a_g_k2 in cand_forms]
     single_mapping = default_options.get('match_exit_single_mapping',False)
     return _match_ast_sets(sig_g,cand_g,default_options,single_mapping=single_mapping)
 
@@ -430,7 +430,7 @@ def classify_formulas(formulas):
             #The formulas here is an addr-guard-kind tuple list.
             exits = exits.union(set(f['a-g-k']))
         else:
-            print '[classify_formulas()] Unrecognized type: ' + f['type']
+            print('[classify_formulas()] Unrecognized type: ' + f['type'])
     return (loads,stores,exits)
 
 #Match two format strings, the core idea here is that we only look at the 'formatters' and ignore other trivial words. 
@@ -488,7 +488,7 @@ def do_match_sig(sig,proj,cfg,cfg_bounds,cfg_acc,sym_tab,options):
     #First do a subgraph match that is mainly based on the graph syntactics.
     candidates = graph_match(sig,proj,cfg,sym_tab=sym_tab)
     if not candidates:
-        print 'No candidates after initial graph match'
+        print('No candidates after initial graph match')
         return (False,0)
     candidate_sigs = [x for (x,y) in candidates]
     #Now basically we need to do the symbolic execution from function entry to each of the candidates and
@@ -500,14 +500,14 @@ def do_match_sig(sig,proj,cfg,cfg_bounds,cfg_acc,sym_tab,options):
     for (cand,mapping) in candidates:
         simplify_signature(cand)
         analyze_func_args_aarch64(sys.argv[1],BASE,cand,options)
-        print '---------------Candidate-----------------'
+        print('---------------Candidate-----------------')
         show_signature(cand)
         if semantic_match(mapping,cand,sig,options):
-            print '^-^ ^-^ ^-^ ^-^ ^-^ ^-^ ^-^ ^-^ SIG MATCHED!!! ^-^ ^-^ ^-^ ^-^ ^-^ ^-^ ^-^ ^-^'
+            print('^-^ ^-^ ^-^ ^-^ ^-^ ^-^ ^-^ ^-^ SIG MATCHED!!! ^-^ ^-^ ^-^ ^-^ ^-^ ^-^ ^-^ ^-^')
             matched = matched + 1
             #break
     if matched == 0:
-        print 'No Matches...'
+        print('No Matches...')
     return (exe.tracer.addr_collision,matched)
 
 def test_func_existence(proj,func_cfg,sym_tab,target_func):
@@ -560,7 +560,7 @@ def match_sig():
                 with open(tks[0],'rb') as fsig:
                     sig = pickle.load(fsig)
             except:
-                print 'No sig file: ' + tks[0]
+                print('No sig file: ' + tks[0])
                 miss_sigs += [tks[0]]
                 applicable = False
                 continue
@@ -570,7 +570,7 @@ def match_sig():
             entry = symbol_table.lookup_func_name(func_name)
             if entry is None:
                 applicable = False
-                print 'Cannot locate the function %s for sig %s in specified kernel image symbol table' % (func_name,sig_name)
+                print('Cannot locate the function %s for sig %s in specified kernel image symbol table' % (func_name,sig_name))
                 continue
             t0 = time.time()
             (ty,addr,size) = entry
@@ -579,7 +579,7 @@ def match_sig():
             if 'func_existence_test' in default_options:
                 #Do a pure function existence testing here, no need to do symbolic execution.
                 target_func = default_options['func_existence_test']
-                print 'Func Existence Test for sig: %s, func_name: %s, target_func: %s' % (sig_name,func_name,target_func)
+                print('Func Existence Test for sig: %s, func_name: %s, target_func: %s' % (sig_name,func_name,target_func))
                 cnt = test_func_existence(b,func_cfg,symbol_table,default_options['func_existence_test'])
             else:
                 #Below is normal symbolic execution based matching.
@@ -594,7 +594,7 @@ def match_sig():
                             cnt = -1
                         break
                     if collision:
-                        print 'Addr collision when matching, retry...'
+                        print('Addr collision when matching, retry...')
                     else:
                         break
                     retry_cnt = retry_cnt - 1
@@ -608,30 +608,30 @@ def match_sig():
                     continue
             else:
                 res_vec += [(sig_name,cnt,t1)]
-                print '%s has %d matches, taking %.2f s' % res_vec[-1]
+                print('%s has %d matches, taking %.2f s' % res_vec[-1])
     if len(tks) > 1:
         if not cve in res_dic and applicable:
             res_dic[cve] = ('N',td)
         td = 0
-        print '----------------RESULTS----------------'
+        print('----------------RESULTS----------------')
         with open('match_res_%s_%.0f_m1' % (sys.argv[1][sys.argv[1].rfind('/')+1:],time.time()),'w') as f:
             for k in sorted(list(res_dic)):
                 td = td + res_dic[k][1]
                 l = '%s %s %.2f' % (k,res_dic[k][0],res_dic[k][1])
-                print l
+                print(l)
                 f.write(l+'\n')
             f.write('Time: ' + str(td) + '\n')
-            print 'Time: ' + str(td)
+            print('Time: ' + str(td))
     else:
-        print '----------------RESULTS----------------'
+        print('----------------RESULTS----------------')
         with open('match_res_%s_%.0f_m0' % (sys.argv[1][sys.argv[1].rfind('/')+1:],time.time()),'w') as f:
             for v in res_vec:
                 l = '%s %d %.2f' % v
-                print l
+                print(l)
                 f.write(l+'\n')
-    print '----------------MISSED----------------'
+    print('----------------MISSED----------------')
     for v in miss_sigs:
-        print v
+        print(v)
 
 if __name__ == '__main__':
     match_sig()

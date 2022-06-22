@@ -49,11 +49,11 @@ class Sym_Executor(object):
     #The CFG here is CFGAcc.
     def _prep_whitelist(self,cfg,cfg_bounds,ends,start=None,proj=None,sym_tab=None):
         if cfg is None or cfg_bounds is None or len(cfg_bounds) < 2:
-            print '_prep_whitelist(): Incomplete CFG information'
+            print('_prep_whitelist(): Incomplete CFG information')
             return
         func_cfg = get_func_cfg(cfg,cfg_bounds[0],proj=proj,sym_tab=sym_tab)
         if func_cfg is None:
-            print 'No func_cfg is available at %x' % cfg_bounds[0]
+            print('No func_cfg is available at %x' % cfg_bounds[0])
             return
         start = cfg_bounds[0] if start is None else start
         self._all_bbs = set([x.addr for x in func_cfg.nodes()])
@@ -62,7 +62,7 @@ class Sym_Executor(object):
         if self.dbg_out:
             l = list(self._whitelist)
             l.sort()
-            print 'whitelist: ' + str([hex(x) for x in l])
+            print('whitelist: ' + str([hex(x) for x in l]))
         return
 
     #Why we put a absolutely 'False' find_func here:
@@ -115,7 +115,7 @@ class Sym_Executor(object):
     #The resulting SimManager. 
     def try_sym_exec(self,proj,cfg,cfg_bounds,targets,states=None,start=None,new_tracer=False,tracer=None,new_recorder=False,recorder=None,sym_tab=None,sigs=None,num_find=10):
         if cfg is None or cfg_bounds is None or len(cfg_bounds) < 2:
-            print 'No CFG information available for sym exec.'
+            print('No CFG information available for sym exec.')
             return None
         #This is the start point of sym exec.
         st = start if start is not None else cfg_bounds[0]
@@ -136,10 +136,10 @@ class Sym_Executor(object):
         #Whether we need to create a new Sig_Recorder
         if new_recorder:
             if sigs is None:
-                print 'You must provide sigs if you want to use new recorder'
+                print('You must provide sigs if you want to use new recorder')
                 return
             if self.tracer is None:
-                print 'You must provide tracer or specify new_tracer flag if you want to use new recorder'
+                print('You must provide tracer or specify new_tracer flag if you want to use new recorder')
                 return
             self.recorder = Sig_Recorder(sigs,self.tracer,dbg_out=dbg_out)
             #Clear any remaining breakpoints
@@ -167,7 +167,7 @@ class Sym_Executor(object):
         t0 = time.time()
         smg.explore(find=self._find_func, avoid=self._avoid_func, num_find=self._num_find)
 
-        print ['%s:%d ' % (name,len(stash)) for name, stash in smg.stashes.items()]
-        print 'Time elapsed: ' + str(time.time() - t0)
+        print(['%s:%d ' % (name,len(stash)) for name, stash in list(smg.stashes.items())])
+        print('Time elapsed: ' + str(time.time() - t0))
 
         return smg

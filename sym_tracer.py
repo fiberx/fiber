@@ -24,11 +24,11 @@ class Sym_Tracer(object):
 
     def _sym_capture(self,state):
         if self.dbg_out:
-            print '[Sym Create] ' + make_reg_readable(state.arch,str(state.inspect.symbolic_expr)) + ' @ ' + hex(state.history.recent_ins_addrs[-1])
+            print('[Sym Create] ' + make_reg_readable(state.arch,str(state.inspect.symbolic_expr)) + ' @ ' + hex(state.history.recent_ins_addrs[-1]))
         name = state.inspect.symbolic_name
         #This *should* be impossible, but if it happens, I made some serious mistakes. 
-        if self._sym_map.has_key(name):
-            print 'sym_capture: multiple entries for the same value: ' + name
+        if name in self._sym_map:
+            print('sym_capture: multiple entries for the same value: ' + name)
             return
         if re.match(re_reg,name) is not None:
             return
@@ -39,13 +39,13 @@ class Sym_Tracer(object):
             for i in range(len(self._addr_conc_buf))[::-1]:
                 (a,e,h) = self._addr_conc_buf[i]
                 #TODO: In the presence of state combination, the 'old_days()' may be unreliable.
-                if a <> addr or e is None:
+                if a != addr or e is None:
                 #if a <> addr or e is None or not old_days(state,h):
                     continue
                 else:
                     index = i
                     break
-            if index <> -1:
+            if index != -1:
                 (a,e,h) = self._addr_conc_buf.pop(index)
                 expr = copy.deepcopy(e)
                 self._sym_map[name] = expr
@@ -62,9 +62,9 @@ class Sym_Tracer(object):
                 #If we want it in the future, keep in mind that call instruction will be the last one of an IRSB.
                 self._sym_map[name] = (target_ast,None)
             else:
-                print 'Cannot find call target for the symbol: ' + name
+                print('Cannot find call target for the symbol: ' + name)
         else:
-            print '[Unusual Symbol] ' + state.inspect.symbolic_name + ': ' + str(state.inspect.symbolic_expr) + ' ' + str(state.inspect.symbolic_size)
+            print('[Unusual Symbol] ' + state.inspect.symbolic_name + ': ' + str(state.inspect.symbolic_expr) + ' ' + str(state.inspect.symbolic_size))
 
     def _addr_conc_capture(self,state):
         mem_addr = state.inspect.address_concretization_result
@@ -81,7 +81,7 @@ class Sym_Tracer(object):
         if mem_addr is None or expr is None:
             return
         if self.dbg_out:
-            print '[Addr Conc] ' + str(expr) + ' --> ' + str([hex(x) for x in mem_addr]) + ' @ ' + hex(state.history.recent_ins_addrs[-1]) + ' -- ' + type(strategy).__name__
+            print('[Addr Conc] ' + str(expr) + ' --> ' + str([hex(x) for x in mem_addr]) + ' @ ' + hex(state.history.recent_ins_addrs[-1]) + ' -- ' + type(strategy).__name__)
         #We take the addr sequence of hitted basic blocks so far as a signature for the history. 
         his = tuple([x for x in state.history.bbl_addrs])
         for addr in mem_addr:
@@ -116,7 +116,7 @@ class Sym_Tracer(object):
         ast.args = tuple(args)
 
     def _is_ast_processed(self,ast):
-        if not ast.hz_extra.has_key('processed'):
+        if 'processed' not in ast.hz_extra:
             return False
         return ast.hz_extra['processed']
 
@@ -131,7 +131,7 @@ class Sym_Tracer(object):
     #Such information has been collected from action history and mem addr conc breakpoints previously.
     def _process_sym_mem(self,state,ast):
         ast.hz_extra['type'] = self.MEM_TYPE
-        if not self._sym_map.has_key(ast.args[0]):
+        if ast.args[0] not in self._sym_map:
             return
         expr = self._sym_map[ast.args[0]]
         #We may still need to trace the addr expr ast back.
@@ -149,8 +149,8 @@ class Sym_Tracer(object):
     def _process_sym_ret(self,state,ast):
         ast.hz_extra['type'] = self.RET_TYPE
         #Retrieve the recorded information about this 'fake_ret' value
-        if not self._sym_map.has_key(ast.args[0]):
-            print 'We find a fake_ret_ value without any information: ' + str(ast)
+        if ast.args[0] not in self._sym_map:
+            print('We find a fake_ret_ value without any information: ' + str(ast))
             #TODO: Do we need to mark this AST as 'processed'?
             return
         (call_ast,insn_addr) = self._sym_map[ast.args[0]]
@@ -161,7 +161,7 @@ class Sym_Tracer(object):
             if self.symbol_table is not None:
                 entry = self.symbol_table.lookup(addr)
                 if entry is None:
-                    print 'Cannot parse function name for ' + hex(addr)
+                    print('Cannot parse function name for ' + hex(addr))
                 else:
                     #(ty,name,size)
                     name = entry[1]
@@ -185,7 +185,7 @@ class Sym_Tracer(object):
 
     #We don't know the symbol type.
     def _process_sym_unk(self,state,ast):
-        print 'Unrecognized symbolic value name: %s' % str(ast)
+        print('Unrecognized symbolic value name: %s' % str(ast))
         ast.hz_extra['type'] = self.UNK_TYPE
         ast.hz_extra['processed'] = True
 
@@ -200,7 +200,7 @@ class Sym_Tracer(object):
         # It seems we only need to tell the originations of the symbolic nodes in the AST. 
         for leaf_ast in ast_c.recursive_leaf_asts:
             if not isinstance(leaf_ast,claripy.ast.Base):
-                print 'Found a non-Base leaf AST:' + str(type(leaf_ast))
+                print('Found a non-Base leaf AST:' + str(type(leaf_ast)))
                 continue
             if not leaf_ast.symbolic:
                 continue
@@ -208,7 +208,7 @@ class Sym_Tracer(object):
             #symbolic value from memory will have a prefix 'mem'. We aim to obtain the expression behind the memory address,
             #e.g. X19+0x24 = 0xXXXXXXXX, we want to know the left side, however the sym name will only contain the right side.
             if not isinstance(leaf_ast.args[0],str):
-                print 'Things go out of expectation, arg 0 of the symbolic AST is not a string: %s' % str(leaf_ast)
+                print('Things go out of expectation, arg 0 of the symbolic AST is not a string: %s' % str(leaf_ast))
                 continue
             if self._is_ast_processed(leaf_ast):
                 continue
