@@ -124,7 +124,7 @@ def _is_fmt_str_patch(src,patch,call_inf):
             c_inf = parse_func_from_str(''.join(call_lines))
             if c_inf is None:
                 continue
-            if c_inf[0] <> name:
+            if c_inf[0] != name:
                 #The function name itself has been changed.
                 return -1
             #Compare o_args and c_args, whether there is fmt str change. 
@@ -134,11 +134,11 @@ def _is_fmt_str_patch(src,patch,call_inf):
             for (o,c) in zip(o_args,c_args):
                 ind += 1
                 if (o[0],o[-1]) == ('"','"') or (c[0],c[-1]) == ('"','"'):
-                    if o <> c:
+                    if o != c:
                         return ind
             break
     else:
-        print '!!! TODO: implement bfr type fmt_str_change detection.'
+        print('!!! TODO: implement bfr type fmt_str_change detection.')
     return -1
 
 #Sometimes a patch will only change the arguments of a same callee, this function identifies the changed args,
@@ -168,14 +168,14 @@ def _get_changed_args(src,patch,call_inf):
             c_inf = parse_func_from_str(''.join(call_lines))
             if c_inf is None:
                 continue
-            if c_inf[0] <> name:
+            if c_inf[0] != name:
                 #The function name itself has been changed.
                 return None
             #Compare o_args and c_args to identify changed args. 
             c_args = c_inf[1]
             i = 0
             for (o,c) in zip(o_args,c_args):
-                if o <> c:
+                if o != c:
                     res.append(i)
                 i += 1 
             if len(o_args) > len(c_args):
@@ -189,7 +189,7 @@ def _get_changed_args(src,patch,call_inf):
                 pass
 
     else:
-        print '!!! TODO: implement bfr type fmt_str_change detection.'
+        print('!!! TODO: implement bfr type fmt_str_change detection.')
     return res
 
 def get_aft_patch_func(src,patch):
@@ -204,7 +204,7 @@ def get_aft_patch_func(src,patch):
             for k in patch['add']:
                 src_func = src_func[0:k[0]-st] + patch['add'][k] + src_func[k[0]-st:]
         #Delete previously marked deleted lines.
-        src_func = filter(lambda x:x <> '24K MAGIC',src_func)
+        src_func = [x for x in src_func if x != '24K MAGIC']
     return src_func
 
 def get_bfr_patch_func(src,patch):
@@ -219,7 +219,7 @@ def get_bfr_patch_func(src,patch):
             for k in patch['del']:
                 src_func = src_func[0:k[0]-st] + patch['del'][k] + src_func[k[0]-st:]
         #Delete previously marked added lines.
-        src_func = filter(lambda x:x <> '24K MAGIC',src_func)
+        src_func = [x for x in src_func if x != '24K MAGIC']
     return src_func
 
 def _strip_text(t):
@@ -365,7 +365,7 @@ def trim_line_candidates(cand,patch):
                     arg_reg.append('x%d' % a)
                 if not arg_reg:
                     #This should be impossible...
-                    print '!!! No callee arguments have been changed @ file: %s func: %s line: %d' % (c_file,c_func,l_no+LINE_BASE)
+                    print('!!! No callee arguments have been changed @ file: %s func: %s line: %d' % (c_file,c_func,l_no+LINE_BASE))
                 else:
                     if len(arg_reg) == 1:
                         arg_reg.append(arg_reg[0])
@@ -465,8 +465,8 @@ def trim_line_candidates(cand,patch):
                 res_cand.append(c)
         i = j + 1
     #H3: Fallback logic for all other boring cand lines.
-    cond_lno = map(lambda x:x[0],line_cond)
-    func_lno = map(lambda x:x[0],line_func)
+    cond_lno = [x[0] for x in line_cond]
+    func_lno = [x[0] for x in line_func]
     line_unk = [(k,tags[k]) for k in tags if not k in cond_lno + func_lno]
     line_unk = sorted(line_unk,key=lambda x:x[0])
     #Only consider unk lines when we have no other choices.
@@ -601,7 +601,7 @@ def add_context_no_guarantee(src,lines,patch,f_inf):
                     blk_map.setdefault(inf['ed_blk'],set()).add(l)
     st_l = set([first-1])
     if first in blk_map:
-        st_l = st_l.union(set(map(lambda x:x[1],blk_map[first])))
+        st_l = st_l.union(set([x[1] for x in blk_map[first]]))
     for st in st_l:
         i = st
         unk_cnt = 0
@@ -639,8 +639,8 @@ def add_context_no_guarantee(src,lines,patch,f_inf):
     #the context lines are func or cond statements, etc.
     fallback_c = []
     res_c = []
-    c_cands_aft_func = filter(lambda x:_get_main_type(tags[x[0]])=='func',c_cands_aft)
-    c_cands_bfr_func = filter(lambda x:_get_main_type(tags[x[0]])=='func',c_cands_bfr)
+    c_cands_aft_func = [x for x in c_cands_aft if _get_main_type(tags[x[0]])=='func']
+    c_cands_bfr_func = [x for x in c_cands_bfr if _get_main_type(tags[x[0]])=='func']
     def _pick_cont_func(cands,reverse=False):
         inlined = True
         cands = sorted(cands,key=lambda x:x[0],reverse=reverse)
@@ -687,8 +687,8 @@ def add_context_no_guarantee(src,lines,patch,f_inf):
                 c['cont_type'] = 'func_bfr'
                 res_c += [c]
     #Then consider the cond statements as contexts.
-    c_cands_aft_cond = filter(lambda x:_get_main_type(tags[x[0]])=='cond',c_cands_aft)
-    c_cands_bfr_cond = filter(lambda x:_get_main_type(tags[x[0]])=='cond',c_cands_bfr)
+    c_cands_aft_cond = [x for x in c_cands_aft if _get_main_type(tags[x[0]])=='cond']
+    c_cands_bfr_cond = [x for x in c_cands_bfr if _get_main_type(tags[x[0]])=='cond']
     def _pick_cont_cond(cands,reverse=False):
         for c in sorted(cands,key=lambda x:x[0],reverse=reverse):
             yield c
@@ -865,24 +865,24 @@ def do_pick_sig(patch_inf,pick_cnt=3):
     #It's time to decide the source code lines that we can mark to extract signatures.
     cands = generate_line_candidates(patch_inf)
     if not cands:
-        print '****** Pure deletion patch or pre-patched.'
+        print('****** Pure deletion patch or pre-patched.')
         return []
     #We must ensure that the cand functions do exist in src kernel binary, since the extraction is based on the binary.
     if sym_tabs:
         #cands = filter(lambda x:sym_tabs[0].lookup_func_name(x['func']) is not None,cands)
-        cands = filter(lambda x:func_exists(x['func']),cands)
+        cands = [x for x in cands if func_exists(x['func'])]
     if not cands:
-        print '****** No function name in the symbol table.'
+        print('****** No function name in the symbol table.')
         return []
     #Do a simple syntax analysis for the functions involved in the patch. 
     global func_inf
     func_inf = parse_funcs_in_patch(patch_inf)
     #Do a filtering since some lines (e.g. variable declaration) cannot be used in signature extraction.
-    cands = filter(lambda x:not _is_decl_cand(x),cands)
+    cands = [x for x in cands if not _is_decl_cand(x)]
     if dbg_out:
-        print '****Candidate lines after filtering out variable declarations****'
+        print('****Candidate lines after filtering out variable declarations****')
         for c in cands:
-            print '%s %s %s' % (c['file'],c['func'],c['line'])
+            print('%s %s %s' % (c['file'],c['func'],c['line']))
     #For each candidate change site, we need to do some adjustments, if it's not unique, contexts need to be added,
     #if it contains multiple lines, it may need to be trimmed.
     res_cand = refine_line_candidates(cands,patch_inf)
@@ -893,10 +893,10 @@ def do_pick_sig(patch_inf,pick_cnt=3):
     if not res_cand:
         res_cand = []
     if dbg_out:
-        print '==============Ranked Candidates=============='
+        print('==============Ranked Candidates==============')
         for r in res_cand:
-            print '=============='
-            print r
+            print('==============')
+            print(r)
     return res_cand[:pick_cnt] if pick_cnt > 0 else res_cand
 
 sym_tabs = []
@@ -918,11 +918,11 @@ def pick_sig():
             #Simple comment mechanism.
             if patch_name[0] == '#':
                 continue
-            print '------------' + patch_name + '----------------'
+            print('------------' + patch_name + '----------------')
             patch_inf = parse_patch(patch_name,sys.argv[2])
             if not patch_inf:
                 fails += [patch_name]
-                print '****** Fail to match the patch.'
+                print('****** Fail to match the patch.')
                 continue
             if dbg_out:
                 print_patch_inf(patch_inf)
@@ -934,7 +934,7 @@ def pick_sig():
                     exts += [c]
             else:
                 fails += [patch_name]
-                print '****** No candidate generated for %s' % patch_name
+                print('****** No candidate generated for %s' % patch_name)
     #Make the 'ext_list' file
     with open(sys.argv[3],'w') as f:
         for c in exts:
@@ -963,7 +963,7 @@ def pick_sig():
                 s += ' ' + o + ':' + opts[o]
             #Write to the output file.
             f.write(s + '\n')
-    print 'Time: %.2f' % (time.time() - t0)
+    print('Time: %.2f' % (time.time() - t0))
     if fails:
         with open(sys.argv[3]+'_fail','w') as f:
             for c in fails:
@@ -972,7 +972,7 @@ def pick_sig():
 def try_lex():
     toks = lex('/*if(asd)    \n     a=c;    \n   //"asd"*/\n       if(a)b=c;         \n//dfgr\nreturn c;',process=False)
     for t in toks:
-        print t
+        print(t)
 
 if __name__ == '__main__':
     pick_sig()

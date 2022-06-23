@@ -21,12 +21,12 @@ def get_match_inf(mf,limit):
                 cve = sig[:-8]
                 ind = int(sig[-3])
             else:
-                print 'Invalid line: ' + r
+                print('Invalid line: ' + r)
                 continue
             if ind > limit:
                 continue
             s_time += time
-            if not cve_vec or cve <> cve_vec[-1]:
+            if not cve_vec or cve != cve_vec[-1]:
                 cve_vec += [cve]
             old_cnt = res.setdefault(cve,{}).get(ind,(10000,0))[0]
             res.setdefault(cve,{})[ind] = (min(cnt,old_cnt),time)
@@ -58,9 +58,9 @@ def analyze_res():
         else:
             #It means that for this cve, our signatures cannot differentiate base and reverse base kernel image.
             #Maybe it's because they both have been patched, maybe it's picker's fault.
-            print 'No difference sig: ' + c
-    print 'base time: %f' % b_time
-    print 'target time: %f' % t_time
+            print('No difference sig: ' + c)
+    print('base time: %f' % b_time)
+    print('target time: %f' % t_time)
     f_res = []
     for c in t_vec:
         flag = False
@@ -74,7 +74,7 @@ def analyze_res():
     if len(sys.argv) < 6:
         #No ground truth file is supplied, then simply output our test results.
         for c in f_res:
-            print '%s %s' % c
+            print('%s %s' % c)
     else:
         #Obtain ground truth.
         answer = {}
@@ -85,12 +85,12 @@ def analyze_res():
                 answer[tokens[0]] = tokens[1]
         err = 0
         for c in f_res:
-            if c[1] <> answer[c[0]] and answer[c[0]] <> 'X':
-                print '%s %s #' % c
+            if c[1] != answer[c[0]] and answer[c[0]] != 'X':
+                print('%s %s #' % c)
                 err += 1
             else:
-                print '%s %s' % c
-        print 'Err: %d' % err
+                print('%s %s' % c)
+        print('Err: %d' % err)
 
 #Picker and translator can generate candidate signatures from a certain patch, then we need to test the uniqueness
 #and performance of these signatures by matching them against patched and unpatched reference kernels. This function
@@ -116,12 +116,12 @@ def analyze_sig_verify_res():
                 sig_ind += [ind]
         if sig_ind:
             for ind in sorted(sig_ind,key=lambda x:b_res[c][x][1]):
-                print '%s-sig-%d %d' % (c,ind,b_res[c][ind][0])
+                print('%s-sig-%d %d' % (c,ind,b_res[c][ind][0]))
         else:
             #It means that for this cve, our signatures cannot differentiate base and reverse base kernel image.
             #Maybe it's because they both have been patched, maybe it's simply that all signatures are not unique. 
             for ind in sorted(list(b_res[c]),key=lambda x:b_res[c][x][1]):
-                print '#%s-sig-%d %d' % (c,ind,b_res[c][ind][0])
+                print('#%s-sig-%d %d' % (c,ind,b_res[c][ind][0]))
 
 def _parse_cve_from_file(f):
     s = set()
@@ -144,21 +144,21 @@ def _parse_cve_from_file(f):
 def miss_cve_analysis(f1,f2):
     s1 = _parse_cve_from_file(f1)
     s2 = _parse_cve_from_file(f2)
-    print 'Set 1: %d, Set 2: %d' % (len(s1),len(s2))
+    print('Set 1: %d, Set 2: %d' % (len(s1),len(s2)))
     for c in s1 - s2:
-        print c
+        print(c)
 
 def print_time_vec(t_vec):
     v = sorted(t_vec)
     for i in v:
-        print i
-    print 'cnt: %d' % len(v)
-    print 'sum: %f' % sum(v)
+        print(i)
+    print('cnt: %d' % len(v))
+    print('sum: %f' % sum(v))
     step = len(v)/10
-    print '10th:'
+    print('10th:')
     for i in range(step-1,len(v),step):
-        print v[i]
-    print 'Max: %f' % v[-1]
+        print(v[i])
+    print('Max: %f' % v[-1])
 
 def analyze_time_ext(res):
     t_vec = []
@@ -187,7 +187,7 @@ def analyze_time_match(res,train=False):
                 cve = sig[:-8]
                 ind = int(sig[-3])
             else:
-                print 'Invalid line: ' + r
+                print('Invalid line: ' + r)
                 continue
             (old_c,old_t) = inf.setdefault(cve,{}).get(ind,(10000,10000.0))
             inf.setdefault(cve,{})[ind] = (min(old_c,cnt),min(old_t,time))

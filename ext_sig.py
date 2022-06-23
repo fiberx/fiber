@@ -17,7 +17,7 @@ import copy,re
 import time
 import networkx
 try:
-    import cPickle as pickle
+    import pickle as pickle
 except ImportError:
     import pickle
 from utils_sig import *
@@ -38,8 +38,8 @@ def locate_marks(proj,cfg,start,end):
                 #(1) prfm type, [sp]
                 #(2) prfm type, [sp,X]
                 ops = ins.op_str.split(',')
-                if len(ops) <> 2 and len(ops) <> 3:
-                    print 'Unusual PRFM: ' + str(ins)
+                if len(ops) != 2 and len(ops) != 3:
+                    print('Unusual PRFM: ' + str(ins))
                     continue
                 groups.setdefault(ops[0],[]).append((ins.address,len(ops) == 2))
     neg_marks = set()
@@ -53,17 +53,17 @@ def locate_marks(proj,cfg,start,end):
             else:
                 neg_marks.add(addr)
         find[pos_mark] = neg_marks
-    print 'MARKERS:'
+    print('MARKERS:')
     for p in find:
-        print 'P: ' + hex(p) + ' N: ' + str([hex(x) for x in find[p]])
+        print('P: ' + hex(p) + ' N: ' + str([hex(x) for x in find[p]]))
 
 def states_info(tracer,states):
     if states is None:
         return
     for st in states:
-        print [hex(x) for x in st.history.bbl_addrs]
+        print([hex(x) for x in st.history.bbl_addrs])
         ast = tracer.get_formula(st,st.regs.x1)
-        print ast
+        print(ast)
 
 #Init the signature from a pair of pos-negs markers, which basically marks all the nodes between them as the area of interest.
 #This needs us to insert some special asm instructions (e.g. PRFM) to the source code and then compile it.
@@ -84,7 +84,7 @@ def init_signature_from_insns_aarch64(proj,cfg,addrs,options,sym_tab=None):
         addr = addrs.pop()
         n = get_node_by_addr(cfg,addr,any_addr=True)
         if not n:
-            print 'No node for addr %x' % addr
+            print('No node for addr %x' % addr)
             continue
         addr_in = [x for x in addrs if x >= n.addr and x < n.addr + n.size] + [addr]
         addrs -= set(addr_in) 
@@ -103,10 +103,10 @@ def init_signature_from_insns_aarch64(proj,cfg,addrs,options,sym_tab=None):
                 pos.add(addr_in[0])
             else:
                 #Really strange, we hang in the middle.
-                print 'Strange, we have some marked instructions hang in the middle of a node: ' + str([hex(x) for x in addr_in])
+                print('Strange, we have some marked instructions hang in the middle of a node: ' + str([hex(x) for x in addr_in]))
                 pos.add(addr_in[0])
                 negs.add(addr_in[-1])
-    print '[Nodes Contained in the Sig] ' + hex_array(node_addrs)
+    print('[Nodes Contained in the Sig] ' + hex_array(node_addrs))
     #print '[Pos] ' + hex_array(list(pos))
     #print '[Negs] ' + hex_array(list(negs))
     #It seems we don't need to use those options like 'default_cfg_ends', since we already have the precise marked range.
@@ -180,9 +180,9 @@ def do_ext_sig_insns(b,start,end,addrs,options=default_options,symbol_table=None
     func_cfg = get_func_cfg(cfg,start,proj=b,sym_tab=symbol_table,simplify=True)
 
     sigs = init_signature_from_insns_aarch64(b,func_cfg,addrs,options,sym_tab=symbol_table)
-    sigs = filter(is_sig_valid,sigs)
+    sigs = list(filter(is_sig_valid,sigs))
     if not sigs:
-        print 'No signatures are valid, possibly they have no root instructions from initialization..'
+        print('No signatures are valid, possibly they have no root instructions from initialization..')
         return (False,None)
     #Get the execution targets from the sigs.
     targets = get_cfg_bound(sigs)
@@ -236,22 +236,22 @@ def ext_sig():
             lnos = _parse_line_nos(tokens[2])
             entry = symbol_table.lookup_func_name(func_name)
             if entry is None:
-                print 'Cannot locate function in symbol table: ' + func_name
+                print('Cannot locate function in symbol table: ' + func_name)
                 continue
             (ty,func_addr,func_size) = entry
             t0 = time.time()
             addrs = get_addrs_from_lines_aarch64(sys.argv[3],func_name,func_addr,func_addr+func_size,lnos)
             aset = set()
-            print '[Instructions Involved]'
+            print('[Instructions Involved]')
             for ln in sorted(list(addrs)):
                 aset = aset.union(addrs[ln])
-                print '%d: %s' % (ln,str([hex(x) for x in sorted(list(addrs[ln]))]))
+                print('%d: %s' % (ln,str([hex(x) for x in sorted(list(addrs[ln]))])))
             options = copy.deepcopy(default_options)
             _parse_options(options,tokens[3:])
             _set_extra_default_options(options)
             if 'func_existence_test' in options:
-                print '-----------Pure Function Existence Testing------------'
-                print '%s func_name: %s, target_func: %s' % (cve,func_name,options['func_existence_test'])
+                print('-----------Pure Function Existence Testing------------')
+                print('%s func_name: %s, target_func: %s' % (cve,func_name,options['func_existence_test']))
                 sig = networkx.DiGraph()
                 sig_name = cve+'-sig-%d' % get_next_index(cve)
                 sig.graph['sig_name'] = sig_name
@@ -267,10 +267,10 @@ def ext_sig():
                 if not collision:
                     break
                 else:
-                    print 'Addr collision occurred when trying to extract sig %s in function %s, retry... %d' % (cve,func_name,retry_cnt)
+                    print('Addr collision occurred when trying to extract sig %s in function %s, retry... %d' % (cve,func_name,retry_cnt))
                 retry_cnt = retry_cnt - 1
             if not sigs:
-                print '!!! No signature generated..'
+                print('!!! No signature generated..')
                 continue
             #print sigs
             sig_ind = get_next_index(cve)
@@ -293,7 +293,7 @@ def ext_sig():
     with open('ext_res_%s_%.0f' % (sys.argv[1][sys.argv[1].rfind('/')+1:],time.time()),'w') as f:
         for v in perf_vec:
             l = '%s %.2f' % v
-            print l
+            print(l)
             f.write(l+'\n')
 
 ADDR2LINE = '/home/hang/ION/aarch64-linux-android-4.9/bin/aarch64-linux-android-addr2line'
@@ -330,7 +330,7 @@ def get_addrs_from_lines_aarch64(image,fname,st,ed,lines):
                 func = tokens[0].split(' ')[3]
                 #print '%x %s %d' % (addr,func,lno)
             else:
-                print 'Unrecognized ADDR2LINE output!!!'
+                print('Unrecognized ADDR2LINE output!!!')
                 continue
             if func == fname and lno in lines:
                 addrs.setdefault(lno,set()).add(addr)
@@ -352,7 +352,7 @@ def _parse_line_nos(s):
 def _parse_options(options,tlist):
     for opt in tlist:
         kv = opt.split(':')
-        if len(kv) <> 2:
+        if len(kv) != 2:
             continue
         if kv[1] == 'True':
             kv[1] = True

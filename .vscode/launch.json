@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Fiber Translator",
+            "type": "python",
+            "request": "launch",
+            "program": "C:/Users/aleja/OneDrive/Documents/GitHub/fiber/ext_sig.py",
+            "args": [
+                "./examples/imgs/angler_img_20170513",
+                "./examples/imgs/angler_img_20170513.sym",
+                "C:/Users/aleja/Downloads/angler_img_20170513_vmlinux",
+                "./examples/ext_list",
+                ".",
+            ]
+        }
+    ]
+}

@@ -13,7 +13,7 @@ LINE_BASE = 1
 
 #It seems that the line number is based on 1 instead of 0 for DWARF, so we need to +1 for each line number.
 def adj_lno_tuple(t):
-    return tuple(map(lambda x:x+LINE_BASE,t))
+    return tuple([x+LINE_BASE for x in t])
 
 def _adj_lno_patch(inf):
     for k in inf:
@@ -56,10 +56,10 @@ def _parse_patch_diff(p_buf,st,ed,kernel):
             fp = p_buf[i][6:]
     inf = {}
     if fp is None or fn is None:
-        print 'No file name found for diff section: ' + p_buf[st]
+        print('No file name found for diff section: ' + p_buf[st])
         return inf
-    if fp <> fn:
-        print 'This diff involves file creation/deletion/rename: ' + p_buf[st]
+    if fp != fn:
+        print('This diff involves file creation/deletion/rename: ' + p_buf[st])
         return inf
     #Got the file name now, split the '@@' sections.
     at_index = [i for i in range(st,ed) if p_buf[i].startswith('@@')] + [ed]
@@ -71,7 +71,7 @@ def _parse_patch_diff(p_buf,st,ed,kernel):
     except:
         return inf
     if not s_buf:
-        print 'The file does not exist in target kernel: ' + fp
+        print('The file does not exist in target kernel: ' + fp)
         return inf
     global src_map
     src_map[fp] = s_buf
@@ -80,7 +80,7 @@ def _parse_patch_diff(p_buf,st,ed,kernel):
         for (func,func_loc,p_inf) in at_inf:
             #Let's do a hacking here: ignore all 'bfr' type @@ sections.
             #TODO: Better solutions later.
-            if p_inf and p_inf['type'] <> 'aft':
+            if p_inf and p_inf['type'] != 'aft':
                 continue
             if func and p_inf:
                 #NOTE: multiple @@ sections can be about the same function.
@@ -130,19 +130,19 @@ def _parse_patch_at(p_buf,st,ed,s_buf):
         (c_inf,prev_line) = _locate_change_site(head,p_buf[t1:t2+1],p_buf[t0:t1],p_buf[t2+1:t3+1],s_buf,st_line=prev_line) 
         if c_inf is None:
             if dbg_out:
-                print '>>>>No matches found for this @@'
+                print('>>>>No matches found for this @@')
             continue
         if dbg_out:
-            print c_inf
+            print(c_inf)
         lno = None
         if c_inf['type'] == 'aft':
-            lno = c_inf['add'].keys()[0][0] if 'add' in c_inf else c_inf['del'].keys()[0][0] - 1
+            lno = list(c_inf['add'].keys())[0][0] if 'add' in c_inf else list(c_inf['del'].keys())[0][0] - 1
         else:
-            lno = c_inf['del'].keys()[0][0] if 'del' in c_inf else c_inf['add'].keys()[0][0] - 1
+            lno = list(c_inf['del'].keys())[0][0] if 'del' in c_inf else list(c_inf['add'].keys())[0][0] - 1
         func_name = get_func_name(lno)
         if not func_name:
             if dbg_out:
-                print 'Line %d does not belong to any function.' % (lno + LINE_BASE)
+                print('Line %d does not belong to any function.' % (lno + LINE_BASE))
         else:
             #(name,head_line)
             inf.append((func_name[0],func_name[1],c_inf))
@@ -153,15 +153,15 @@ def _parse_patch_at(p_buf,st,ed,s_buf):
 #alines: context lines after
 def _locate_change_site(head,clines,blines,alines,s_buf,st_line=0):
     if dbg_out:
-        print '----------------@@--------------------'
-        print head
+        print('----------------@@--------------------')
+        print(head)
         for l in blines:
-            print l
+            print(l)
         for l in clines:
-            print l
+            print(l)
         for l in alines:
-            print l
-        print '----------------@@--------------------'
+            print(l)
+        print('----------------@@--------------------')
     #locate head
     if head.strip():
         for i in range(len(s_buf)):
@@ -183,13 +183,13 @@ def _locate_change_site(head,clines,blines,alines,s_buf,st_line=0):
                 #We have reached the end of the source file.
                 return False
             re_space = '[\t ]*'
-            if re.sub(re_space,' ',lines[j]).strip() <> re.sub(re_space,' ',s_buf[i+j]).strip():
+            if re.sub(re_space,' ',lines[j]).strip() != re.sub(re_space,' ',s_buf[i+j]).strip():
                 return False
         return True
-    plines = filter(lambda x:x.startswith('+'),clines)
-    plines = map(lambda x:x[1:],plines)
-    nlines = filter(lambda x:x.startswith('-'),clines)
-    nlines = map(lambda x:x[1:],nlines)
+    plines = [x for x in clines if x.startswith('+')]
+    plines = [x[1:] for x in plines]
+    nlines = [x for x in clines if x.startswith('-')]
+    nlines = [x[1:] for x in nlines]
     inf = {}
     while i < len(s_buf):
         j = i
@@ -260,18 +260,18 @@ def _locate_change_site(head,clines,blines,alines,s_buf,st_line=0):
 
 def print_patch_inf(inf):
     for k in inf:
-        print '-----------------------------------------'
-        print k[1]
-        print k[0] + ' ' + str(inf[k]['func_range'])
-        print 'Type: ' + inf[k]['type']
+        print('-----------------------------------------')
+        print(k[1])
+        print(k[0] + ' ' + str(inf[k]['func_range']))
+        print('Type: ' + inf[k]['type'])
         if 'add' in inf[k]:
-            print '++++line++++'
+            print('++++line++++')
             for (st,ed) in inf[k]['add']:
-                print '%d - %d' % adj_lno_tuple((st,ed))
+                print('%d - %d' % adj_lno_tuple((st,ed)))
         if 'del' in inf[k]:
-            print '----line----'
+            print('----line----')
             for (st,ed) in inf[k]['del']:
-                print '%d - %d' % adj_lno_tuple((st,ed))
+                print('%d - %d' % adj_lno_tuple((st,ed)))
 
 def get_func_name(lno):
     for k in cur_func_inf:
@@ -314,12 +314,12 @@ def build_func_map(s_buf):
                         #So to mark a function we need both name and its location.
                         cur_func_inf_r[(func,prev_pos[0])] = ((prev_pos[0],i),arg_cnt)
                 elif cnt < 0:
-                    print '!!! Syntax error: ' + s_buf[i]
-                    print 'prev_pos: %d:%d' % adj_lno_tuple(prev_pos)
-                    print '------------Context Dump--------------'
+                    print('!!! Syntax error: ' + s_buf[i])
+                    print('prev_pos: %d:%d' % adj_lno_tuple(prev_pos))
+                    print('------------Context Dump--------------')
                     l1 = max(i-5,0)
                     l2 = min(i+5,len(s_buf)-1)
-                    print ''.join([s_buf[i] for i in range(l1,l2+1)])
+                    print(''.join([s_buf[i] for i in range(l1,l2+1)]))
                     return
             elif s_buf[i][j] == '"' and in_comment == 0:
                 in_str = not in_str
@@ -407,12 +407,12 @@ def parse_funcs_in_patch(p_inf):
         t_inf = parse_raw_tokens(tokens,l_ind,st)
         func_inf[k] = t_inf
     if dbg_out:
-        print '----------Func Inf-----------'
+        print('----------Func Inf-----------')
         for k in func_inf:
-            print '>>>> ' + str(k) + ' <<<<'
+            print('>>>> ' + str(k) + ' <<<<')
             for t in func_inf[k]:
-                print t
-                print func_inf[k][t]
+                print(t)
+                print(func_inf[k][t])
     return func_inf
 
 #Record the offset range of syntax structure of interest (e.g. if,for,function call...)
@@ -441,15 +441,15 @@ def parse_raw_tokens(tks,index,base_lno):
         return True
     while i < len(tks) - 1:
         if tks[i][2] in ('if','for','while'):
-            if tks[i+1][2] <> '(':
+            if tks[i+1][2] != '(':
                 #Should be impossible
-                print '!!! No ( after keyword'
+                print('!!! No ( after keyword')
                 print_surround_tokens(tks,i)
                 continue
             st = tks[i][0]
             ed_i = find_close(tks,i+1)
             if ed_i is None:
-                print '!!! No close found'
+                print('!!! No close found')
                 print_surround_tokens(tks,i)
                 i += 1
                 continue
@@ -461,7 +461,7 @@ def parse_raw_tokens(tks,index,base_lno):
             else:
                 #The cond statement doesn't use '{}' to contain its block, so it must only have one statement in the block.
                 ed_block_i = ed_i + 1
-                while ed_block_i < len(tks) and tks[ed_block_i][2] <> ';':
+                while ed_block_i < len(tks) and tks[ed_block_i][2] != ';':
                     ed_block_i += 1
             if ed_block_i + 1 < len(tks):
                 ed_block_i += 1
@@ -477,7 +477,7 @@ def parse_raw_tokens(tks,index,base_lno):
             st = tks[i][0]
             ed_i = find_close(tks,i+1)
             if ed_i is None:
-                print '!!! No close found'
+                print('!!! No close found')
                 print_surround_tokens(tks,i)
                 i += 1
                 continue
@@ -491,10 +491,10 @@ def parse_raw_tokens(tks,index,base_lno):
             #Parse a return statement.
             st = tks[i][0]
             j = i
-            while j < len(tks) and tks[j][2] <> ';':
+            while j < len(tks) and tks[j][2] != ';':
                 j += 1
             if j >= len(tks):
-                print '!!! No ; found for return'
+                print('!!! No ; found for return')
                 print_surround_tokens(tks,i)
             ed = tks[j][0]
             st = lookup_line_no(st,index) + base_lno
@@ -575,7 +575,7 @@ def print_surround_tokens(tks,i,cnt=5):
     v = len(tks[0]) - 1
     t1 = max(0,i-cnt)
     t2 = min(len(tks)-1,i+cnt)
-    print ''.join([x[v] for x in tks[t1:t2+1]])
+    print(''.join([x[v] for x in tks[t1:t2+1]]))
 
 #find ')' for '(', '}' for '{', etc.
 def find_close(tks,i):
@@ -589,7 +589,7 @@ def find_close(tks,i):
         p = '{'
         n = '}'
     else:
-        print 'Unsupported open: ' + tks[i][v]
+        print('Unsupported open: ' + tks[i][v])
         return None
     cnt = 1
     i += 1
@@ -618,7 +618,7 @@ def strip_tokens(tks):
     if not tks:
         return tks
     v = len(tks[0]) - 1
-    return filter(lambda x:x[v].strip()<>'',tks)
+    return [x for x in tks if x[v].strip()!='']
 
 def _l_cls_decl(line,tks):
     if not tks or len(tks) < 4:

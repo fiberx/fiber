@@ -43,26 +43,26 @@ def build():
                 continue
             cve = p[p.rfind('/')+1:]
             p_inf = split_patch(p)
-            print '>>>>>>>>>>>>>>>>>' + cve + '>>>>>>>>>>>>>>>>>'
+            print('>>>>>>>>>>>>>>>>>' + cve + '>>>>>>>>>>>>>>>>>')
             for k in p_inf:
                 for at in p_inf[k]:
-                    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-                    print k[0]
-                    print k[1]
-                    print at
-                    s = raw_input('-->')
+                    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+                    print(k[0])
+                    print(k[1])
+                    print(at)
+                    s = input('-->')
                     if s[0] in ('p','n','d','x'):
                         break
                 if s[0] in ('p','n','x'):
                     break
             if not s[0] in ('p','n','x'):
-                print '!! All @@ sections have been iterated, plz make a p/n/x decision'
-                s = raw_input('-->')
+                print('!! All @@ sections have been iterated, plz make a p/n/x decision')
+                s = input('-->')
             res_vec += [(cve,s[0].capitalize())]
-            print '=============================================='
+            print('==============================================')
             for t in res_vec:
-                print '%s %s' % t
-            print '=============================================='
+                print('%s %s' % t)
+            print('==============================================')
 
 if __name__ == '__main__':
     build()
